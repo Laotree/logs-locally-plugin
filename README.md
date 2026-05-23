@@ -1,4 +1,11 @@
+[![Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-f5a623)](https://laotree.github.io/logs-locally-plugin/)
+[![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 # Logs Locally Plugin
+
+Store and browse Claude Code session logs in a local SQLite database with a built-in web UI.
+
+**[Homepage](https://laotree.github.io/logs-locally-plugin/) &middot; [Installation](#installation) &middot; [GitHub](https://github.com/Laotree/logs-locally-plugin)**
 
 Store and browse Claude Code session logs in a local SQLite database with a built-in web UI.
 
