@@ -1,0 +1,332 @@
+use anyhow::{Context, Result};
+use rusqlite::{params, Connection};
+use serde::Serialize;
+use std::path::Path;
+use std::sync::Mutex;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Session {
+    pub id: String,
+    pub title: Option<String>,
+    pub model: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub message_count: i64,
+    pub token_count: i64,
+    pub cwd: Option<String>,
+    pub git_branch: Option<String>,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Message {
+    pub id: String,
+    pub session_id: String,
+    pub role: String,
+    pub content: String,
+    pub created_at: String,
+    pub token_count: i64,
+    pub parent_id: Option<String>,
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Stats {
+    pub total_sessions: i64,
+    pub total_messages: i64,
+    pub total_tokens: i64,
+    pub models: Vec<ModelStat>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ModelStat {
+    pub model: String,
+    pub session_count: i64,
+    pub message_count: i64,
+    pub token_count: i64,
+}
+
+pub struct Db {
+    conn: Mutex<Connection>,
+}
+
+impl Db {
+    pub fn open(path: &Path) -> Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("creating db directory {:?}", parent))?;
+        }
+        let conn = Connection::open(path).context("opening SQLite database")?;
+        let db = Db {
+            conn: Mutex::new(conn),
+        };
+        db.migrate()?;
+        Ok(db)
+    }
+
+    fn migrate(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                model TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                message_count INTEGER DEFAULT 0,
+                token_count INTEGER DEFAULT 0,
+                cwd TEXT,
+                git_branch TEXT,
+                version TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS messages (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL REFERENCES sessions(id),
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                token_count INTEGER DEFAULT 0,
+                parent_id TEXT,
+                model TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+            CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
+            CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at);
+            ",
+        )
+        .context("running migrations")?;
+        Ok(())
+    }
+
+    pub fn upsert_session(&self, session: &Session) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO sessions (id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+             ON CONFLICT(id) DO UPDATE SET
+                title = COALESCE(?2, title),
+                model = COALESCE(?3, model),
+                updated_at = MAX(updated_at, ?5),
+                message_count = ?6,
+                token_count = ?7,
+                cwd = COALESCE(?8, cwd),
+                git_branch = COALESCE(?9, git_branch),
+                version = COALESCE(?10, version)",
+            params![
+                session.id,
+                session.title,
+                session.model,
+                session.created_at,
+                session.updated_at,
+                session.message_count,
+                session.token_count,
+                session.cwd,
+                session.git_branch,
+                session.version,
+            ],
+        )
+        .context("upserting session")?;
+        Ok(())
+    }
+
+    pub fn upsert_message(&self, msg: &Message) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content, created_at, token_count, parent_id, model)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(id) DO NOTHING",
+            params![
+                msg.id,
+                msg.session_id,
+                msg.role,
+                msg.content,
+                msg.created_at,
+                msg.token_count,
+                msg.parent_id,
+                msg.model,
+            ],
+        )
+        .context("upserting message")?;
+        Ok(())
+    }
+
+    pub fn session_exists(&self, id: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sessions WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .context("checking session existence")?;
+        Ok(exists)
+    }
+
+    pub fn list_sessions(
+        &self,
+        model_filter: Option<&str>,
+        since: Option<&str>,
+        keyword: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<Session>> {
+        let conn = self.conn.lock().unwrap();
+        let mut sql = String::from(
+            "SELECT id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version FROM sessions WHERE 1=1",
+        );
+        let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(model) = model_filter {
+            sql.push_str(" AND model = ?");
+            param_values.push(Box::new(model.to_string()));
+        }
+        if let Some(since) = since {
+            sql.push_str(" AND updated_at >= ?");
+            param_values.push(Box::new(since.to_string()));
+        }
+        if let Some(keyword) = keyword {
+            sql.push_str(" AND (title LIKE ? OR id LIKE ?)");
+            let pattern = format!("%{}%", keyword);
+            param_values.push(Box::new(pattern.clone()));
+            param_values.push(Box::new(pattern));
+        }
+
+        sql.push_str(" ORDER BY updated_at DESC LIMIT ? OFFSET ?");
+        param_values.push(Box::new(limit));
+        param_values.push(Box::new(offset));
+
+        let mut stmt = conn.prepare(&sql).context("preparing list sessions query")?;
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(|p| p.as_ref()).collect();
+
+        let sessions = stmt
+            .query_map(params_refs.as_slice(), |row| {
+                Ok(Session {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    model: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                    message_count: row.get(5)?,
+                    token_count: row.get(6)?,
+                    cwd: row.get(7)?,
+                    git_branch: row.get(8)?,
+                    version: row.get(9)?,
+                })
+            })
+            .context("querying sessions")?
+            .collect::<Result<Vec<_>, _>>()
+            .context("collecting sessions")?;
+
+        Ok(sessions)
+    }
+
+    pub fn get_session(&self, id: &str) -> Result<Option<Session>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version
+                 FROM sessions WHERE id = ?1",
+            )
+            .context("preparing get session query")?;
+
+        let mut rows = stmt
+            .query_map(params![id], |row| {
+                Ok(Session {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    model: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                    message_count: row.get(5)?,
+                    token_count: row.get(6)?,
+                    cwd: row.get(7)?,
+                    git_branch: row.get(8)?,
+                    version: row.get(9)?,
+                })
+            })
+            .context("querying session")?;
+
+        match rows.next() {
+            Some(Ok(session)) => Ok(Some(session)),
+            _ => Ok(None),
+        }
+    }
+
+    pub fn get_messages(&self, session_id: &str) -> Result<Vec<Message>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, session_id, role, content, created_at, token_count, parent_id, model
+                 FROM messages WHERE session_id = ?1
+                 ORDER BY created_at ASC",
+            )
+            .context("preparing get messages query")?;
+
+        let messages = stmt
+            .query_map(params![session_id], |row| {
+                Ok(Message {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    role: row.get(2)?,
+                    content: row.get(3)?,
+                    created_at: row.get(4)?,
+                    token_count: row.get(5)?,
+                    parent_id: row.get(6)?,
+                    model: row.get(7)?,
+                })
+            })
+            .context("querying messages")?
+            .collect::<Result<Vec<_>, _>>()
+            .context("collecting messages")?;
+
+        Ok(messages)
+    }
+
+    pub fn get_stats(&self) -> Result<Stats> {
+        let conn = self.conn.lock().unwrap();
+
+        let (total_sessions, total_messages, total_tokens): (i64, i64, i64) = conn
+            .query_row(
+                "SELECT COUNT(*) as sessions, COALESCE(SUM(message_count),0) as msgs, COALESCE(SUM(token_count),0) as tokens FROM sessions",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .context("querying stats")?;
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT COALESCE(model, 'unknown') as model,
+                        COUNT(*) as session_count,
+                        COALESCE(SUM(message_count),0) as msg_count,
+                        COALESCE(SUM(token_count),0) as token_count
+                 FROM sessions
+                 GROUP BY model
+                 ORDER BY token_count DESC",
+            )
+            .context("preparing model stats query")?;
+
+        let models = stmt
+            .query_map([], |row| {
+                Ok(ModelStat {
+                    model: row.get(0)?,
+                    session_count: row.get(1)?,
+                    message_count: row.get(2)?,
+                    token_count: row.get(3)?,
+                })
+            })
+            .context("querying model stats")?
+            .collect::<Result<Vec<_>, _>>()
+            .context("collecting model stats")?;
+
+        Ok(Stats {
+            total_sessions,
+            total_messages,
+            total_tokens,
+            models,
+        })
+    }
+}

@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logs Locally</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --sidebar-bg: #121212;
+    --hover: #1a1a1a;
+    --active-bg: #1e1e1e;
+    --border: #232323;
+    --text: #e5e5e5;
+    --text-dim: #666;
+    --text-muted: #888;
+    --accent: #f5a623;
+    --accent-glow: rgba(245, 166, 35, 0.08);
+    --user-bubble: #2a2a2a;
+    --claude-bg: #141414;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    height: 100vh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Layout */
+  .app {
+    display: flex;
+    height: 100vh;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 320px;
+    min-width: 320px;
+    background: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+  }
+
+  .sidebar-header {
+    padding: 16px 16px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-header .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+
+  .sidebar-header .logo svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .sidebar-header .stats-badge {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--hover);
+    padding: 3px 8px;
+    border-radius: 10px;
+  }
+
+  .search-box {
+    margin: 0 16px 12px;
+    position: relative;
+  }
+
+  .search-box input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px 8px 34px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-box input::placeholder { color: var(--text-dim); }
+  .search-box input:focus { border-color: var(--accent); }
+  .search-box .icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px 10px;
+  }
+
+  .filter-row select {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: var(--font);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%23888'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
+
+  .filter-row select:focus { border-color: var(--accent); }
+
+  /* Session list */
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px 8px;
+  }
+
+  .session-item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+    margin-bottom: 1px;
+  }
+
+  .session-item:hover { background: var(--hover); }
+  .session-item.active { background: var(--active-bg); }
+
+  .session-item .title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .session-item .title .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .session-item .meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .session-item .meta .dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+
+  .session-item .meta .model-tag {
+    color: var(--accent);
+    font-size: 10px;
+    opacity: 0.7;
+  }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .main-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg);
+  }
+
+  .main-header .session-title {
+    font-size: 15px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .main-header .session-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .main-header .back-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 18px;
+  }
+
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Messages */
+  .message {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    animation: fadeIn 0.15s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .message + .message {
+    border-top: 1px solid var(--border);
+  }
+
+  .message .avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  .message.user .avatar {
+    background: var(--user-bubble);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .message.assistant .avatar {
+    background: linear-gradient(135deg, #f5a623, #f5a62388);
+    color: #fff;
+  }
+
+  .message .body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .message .body .name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .message .body .name-row .name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .message .body .name-row .time {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .message .body .content {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .message .body .content p { margin-bottom: 8px; }
+  .message .body .content p:last-child { margin-bottom: 0; }
+
+  .message .body .content code {
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+
+  .message .body .content pre {
+    background: #0d0d0d;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 10px 0;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .message .body .content pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+  }
+
+  /* Thinking block */
+  .thinking-block {
+    border-left: 2px solid var(--text-dim);
+    padding: 8px 0 8px 16px;
+    margin: 8px 0;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .thinking-block summary {
+    cursor: pointer;
+    color: var(--text-dim);
+    font-style: normal;
+    font-size: 12px;
+    margin-bottom: 4px;
+    user-select: none;
+  }
+
+  .thinking-block summary:hover { color: var(--text-muted); }
+
+  /* Tool call block */
+  .tool-block {
+    background: rgba(245, 166, 35, 0.05);
+    border: 1px solid rgba(245, 166, 35, 0.15);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-size: 13px;
+  }
+
+  .tool-block .tool-name {
+    color: var(--accent);
+    font-weight: 500;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .tool-block .tool-input {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+  }
+
+  /* Empty state */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 40px;
+  }
+
+  .empty-state .big-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    font-size: 22px;
+  }
+
+  .empty-state h3 {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .empty-state p {
+    font-size: 13px;
+    color: var(--text-dim);
+    max-width: 320px;
+    line-height: 1.5;
+  }
+
+  .empty-state .hint {
+    margin-top: 20px;
+    padding: 8px 16px;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .empty-state .hint code {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+
+  @keyframes dots {
+    0%,20% { content: '.'; }
+    40% { content: '..'; }
+    60%,100% { content: '...'; }
+  }
+
+  .model-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    background: rgba(245, 166, 35, 0.1);
+    color: var(--accent);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #333; }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 100;
+      transition: transform 0.2s ease;
+      width: 100%;
+    }
+    .sidebar.hidden { transform: translateX(-100%); }
+    .main-header .back-btn { display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        Logs Locally
+      </div>
+      <span class="stats-badge" id="statsBadge">0</span>
+    </div>
+    <div class="search-box">
+      <span class="icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </span>
+      <input type="text" id="searchInput" placeholder="Search sessions..." oninput="onSearchInput()">
+    </div>
+    <div class="filter-row">
+      <select id="filterModel" onchange="loadSessions()"><option value="">All models</option></select>
+      <select id="filterSince" onchange="loadSessions()">
+        <option value="">Any time</option>
+        <option value="24h">Today</option>
+        <option value="7d" selected>Past 7 days</option>
+        <option value="30d">Past month</option>
+      </select>
+    </div>
+    <div class="session-list" id="sessionList">
+      <div style="padding:20px;text-align:center;color:var(--text-dim);font-size:13px;">Loading<span class="loading-dots"></span></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="main-header" id="mainHeader">
+      <button class="back-btn" id="backBtn" onclick="showSidebar()">&#8592;</button>
+      <span class="session-title" id="sessionTitle">Select a session</span>
+      <span class="session-meta" id="sessionMeta"></span>
+    </div>
+    <div class="messages-container" id="messagesContainer">
+      <div class="empty-state" id="emptyState">
+        <div class="big-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <h3>Your session logs</h3>
+        <p>Claude Code sessions are automatically stored here after each conversation. Select one from the sidebar to view its messages.</p>
+        <div class="hint">
+          Sessions are imported via <code>llp import</code> on Claude exit
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let allSessions = [];
+let selectedId = null;
+let pollTimer = null;
+let searchTimer = null;
+
+function ago(timestamp) {
+  const now = Date.now();
+  const t = new Date(timestamp).getTime();
+  if (isNaN(t)) return '';
+  const diff = Math.floor((now - t) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h`;
+  if (diff < 604800) return `${Math.floor(diff/86400)}d`;
+  return new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatTokens(n) {
+  if (!n) return '0';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+async function api(path) {
+  const res = await fetch(`${API}${path}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function updateStats() {
+  try {
+    const data = await api('/api/stats');
+    document.getElementById('statsBadge').textContent = data.total_sessions;
+    return data;
+  } catch { return null; }
+}
+
+async function loadModels() {
+  try {
+    const data = await api('/api/stats');
+    const sel = document.getElementById('filterModel');
+    sel.innerHTML = '<option value="">All models</option>';
+    for (const m of (data.models || [])) {
+      const opt = document.createElement('option');
+      opt.value = m.model;
+      opt.textContent = m.model;
+      sel.appendChild(opt);
+    }
+  } catch {}
+}
+
+function getSinceDate(value) {
+  if (!value) return '';
+  const now = new Date();
+  const hours = { '24h': 24, '7d': 168, '30d': 720 }[value];
+  if (!hours) return '';
+  now.setHours(now.getHours() - hours);
+  return now.toISOString();
+}
+
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadSessions, 300);
+}
+
+async function loadSessions() {
+  const model = document.getElementById('filterModel').value;
+  const since = getSinceDate(document.getElementById('filterSince').value);
+  const q = document.getElementById('searchInput').value.trim();
+  const params = new URLSearchParams({ limit: '200' });
+  if (model) params.set('model', model);
+  if (since) params.set('since', since);
+  if (q) params.set('q', q);
+
+  try {
+    const data = await api(`/api/sessions?${params}`);
+    allSessions = data.sessions || [];
+    renderSessionList();
+  } catch {
+    document.getElementById('sessionList').innerHTML =
+      '<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:13px;">Failed to load</div>';
+  }
+  updateStats();
+}
+
+function renderSessionList() {
+  const container = document.getElementById('sessionList');
+  if (!allSessions.length) {
+    container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dim);font-size:13px;">No sessions found</div>';
+    return;
+  }
+  container.innerHTML = allSessions.map(s => `
+    <div class="session-item ${s.id === selectedId ? 'active' : ''}"
+         onclick="selectSession('${s.id}')">
+      <div class="title">
+        <span class="name">${escHtml(s.title || s.id.slice(0, 12))}</span>
+      </div>
+      <div class="meta">
+        ${s.model ? `<span class="model-tag">${escHtml(s.model)}</span><span class="dot"></span>` : ''}
+        <span>${s.message_count} msgs</span>
+        ${s.token_count ? `<span class="dot"></span><span>${formatTokens(s.token_count)} tokens</span>` : ''}
+        <span class="dot"></span>
+        <span>${ago(s.updated_at)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function selectSession(id) {
+  selectedId = id;
+  renderSessionList();
+
+  // Mobile: hide sidebar
+  document.getElementById('sidebar').classList.add('hidden');
+  document.getElementById('backBtn').style.display = 'flex';
+
+  document.getElementById('sessionTitle').textContent = 'Loading...';
+  document.getElementById('sessionMeta').textContent = '';
+  document.getElementById('emptyState').style.display = 'none';
+
+  try {
+    const [sessionData, msgsData] = await Promise.all([
+      api(`/api/sessions/${id}`),
+      api(`/api/sessions/${id}/messages`),
+    ]);
+    renderSessionDetail(sessionData, msgsData.messages || []);
+  } catch {
+    document.getElementById('messagesContainer').innerHTML =
+      '<div class="empty-state"><p>Failed to load session</p></div>';
+  }
+}
+
+function showSidebar() {
+  document.getElementById('sidebar').classList.remove('hidden');
+}
+
+function renderSessionDetail(session, messages) {
+  document.getElementById('sessionTitle').textContent = session.title || session.id.slice(0, 16);
+
+  const metaParts = [];
+  if (session.model) metaParts.push(`<span class="model-badge">${escHtml(session.model)}</span>`);
+  metaParts.push(`${session.message_count} msgs`);
+  metaParts.push(`${formatTokens(session.token_count)} tokens`);
+  document.getElementById('sessionMeta').innerHTML = metaParts.join(' &middot; ');
+
+  const container = document.getElementById('messagesContainer');
+  container.innerHTML = messages.map(m => renderMessage(m)).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function renderMessage(msg) {
+  const role = msg.role === 'user' ? 'user' : 'assistant';
+  const avatar = role === 'user' ? '&#x1f464;' : 'C';
+  const name = role === 'user' ? 'You' : 'Claude';
+
+  let time = '';
+  if (msg.created_at) {
+    const d = new Date(msg.created_at);
+    if (!isNaN(d.getTime())) {
+      time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }
+  }
+
+  const content = formatContent(msg.content);
+
+  return `
+    <div class="message ${role}">
+      <div class="avatar">${avatar}</div>
+      <div class="body">
+        <div class="name-row">
+          <span class="name">${name}</span>
+          ${msg.model ? `<span class="model-badge">${escHtml(msg.model)}</span>` : ''}
+          <span class="time">${time}</span>
+        </div>
+        <div class="content">${content}</div>
+      </div>
+    </div>
+  `;
+}
+
+function formatContent(content) {
+  if (!content) return '<em style="color:var(--text-dim)">empty</em>';
+
+  let html = escHtml(content);
+
+  // Thinking blocks (collapsible)
+  html = html.replace(
+    /\[thinking\]([\s\S]*?)\[\/thinking\]/g,
+    (_, text) => `<details class="thinking-block"><summary>Claude's thinking</summary><div>${escHtml(text.trim())}</div></details>`
+  );
+
+  // Tool calls
+  html = html.replace(
+    /\[tool: ([^\]]*)\]([\s\S]*?)\[\/tool\]/g,
+    (_, name, input) => `<div class="tool-block"><div class="tool-name">&#x1f6e0;&#xfe0f; ${escHtml(name.trim())}</div><div class="tool-input">${escHtml(input.trim())}</div></div>`
+  );
+
+  // Code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const langTag = lang ? `<span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">${escHtml(lang)}</span>` : '';
+    return `<pre>${langTag}<code>${escHtml(code)}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Double newlines → paragraphs
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  // Remove empty paragraphs
+  html = html.replace(/<p>\s*<\/p>/g, '');
+
+  return html;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+// Auto-refresh
+function startPolling() {
+  pollTimer = setInterval(async () => {
+    await updateStats();
+    const prevCount = allSessions.length;
+    try {
+      const model = document.getElementById('filterModel').value;
+      const since = getSinceDate(document.getElementById('filterSince').value);
+      const q = document.getElementById('searchInput').value.trim();
+      const params = new URLSearchParams({ limit: '200' });
+      if (model) params.set('model', model);
+      if (since) params.set('since', since);
+      if (q) params.set('q', q);
+      const data = await api(`/api/sessions?${params}`);
+      if (data.sessions && data.sessions.length !== prevCount) {
+        allSessions = data.sessions;
+        renderSessionList();
+        if (selectedId && data.sessions.some(s => s.id === selectedId)) {
+          selectSession(selectedId);
+        }
+      }
+    } catch {}
+  }, 10000);
+}
+
+async function init() {
+  await loadModels();
+  await loadSessions();
+  startPolling();
+}
+
+init();
+</script>
+</body>
+</html>
