@@ -665,7 +665,8 @@ async function selectSession(id) {
 
   document.getElementById('sessionTitle').textContent = 'Loading...';
   document.getElementById('sessionMeta').textContent = '';
-  document.getElementById('emptyState').style.display = 'none';
+  const emptyState = document.getElementById('emptyState');
+  if (emptyState) emptyState.style.display = 'none';
 
   try {
     const [sessionData, msgsData] = await Promise.all([
