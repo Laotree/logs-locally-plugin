@@ -116,13 +116,7 @@ pub fn parse_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
     session.created_at = first_ts.unwrap_or_else(|| iso_now());
     session.updated_at = last_ts.unwrap_or_else(|| iso_now());
 
-    // Count user messages (excluding attachments)
-    let user_msg_count = messages
-        .iter()
-        .filter(|m| m.role == "user" || m.role == "assistant")
-        .count() as i64;
-
-    session.message_count = user_msg_count;
+    session.message_count = messages.len() as i64;
     session.token_count = messages.iter().map(|m| m.token_count).sum();
 
     Ok((session, messages))
@@ -208,10 +202,5 @@ pub fn import_session(db: &crate::db::Db, jsonl_path: &Path) -> Result<bool> {
     }
 
     let (session, messages) = parse_session_file(jsonl_path)?;
-    db.upsert_session(&session)?;
-    for msg in &messages {
-        db.upsert_message(msg)?;
-    }
-
-    Ok(true)
+    db.import_session(&session, &messages)
 }
