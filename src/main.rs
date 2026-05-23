@@ -48,8 +48,6 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Import { file } => {
-            let db = db::Db::open(&cfg.db_path)?;
-
             let jsonl_path = if let Some(path) = file {
                 path
             } else {
@@ -58,16 +56,29 @@ async fn main() -> Result<()> {
                     .context("no session files found for this project")?
             };
 
-            let imported = parser::import_session(&db, &jsonl_path)?;
-            if imported {
-                println!("Imported: {}", jsonl_path.display());
-            } else {
-                println!("Already imported (skipped): {}", jsonl_path.display());
+            let mut any_imported = false;
+            for db_path in cfg.effective_db_paths() {
+                let db = db::Db::open(db_path)?;
+                match parser::import_session(&db, &jsonl_path) {
+                    Ok(true) => {
+                        println!("Imported to {}: {}", db_path.display(), jsonl_path.display());
+                        any_imported = true;
+                    }
+                    Ok(false) => {
+                        println!("Already imported (skipped) in {}", db_path.display());
+                    }
+                    Err(e) => {
+                        eprintln!("Error importing to {}: {}", db_path.display(), e);
+                    }
+                }
+            }
+            if !any_imported {
+                println!("No new data imported.");
             }
         }
 
         Commands::Serve { port } => {
-            let db = db::Db::open(&cfg.db_path)?;
+            let db = db::Db::open(cfg.primary_db_path())?;
             let addr = format!("{}:{}", cfg.host, port.unwrap_or(cfg.port));
             let listener = tokio::net::TcpListener::bind(&addr)
                 .await
@@ -84,7 +95,6 @@ async fn main() -> Result<()> {
         }
 
         Commands::ImportAll { project_dir } => {
-            let db = db::Db::open(&cfg.db_path)?;
             let project_dir_name = config::Config::project_dir_name(&project_dir);
             let sessions_dir = cfg.claude_projects_dir.join(&project_dir_name);
 
@@ -92,7 +102,6 @@ async fn main() -> Result<()> {
                 anyhow::bail!("sessions directory not found: {:?}", sessions_dir);
             }
 
-            let mut count = 0;
             let mut entries: Vec<_> = std::fs::read_dir(&sessions_dir)
                 .context("reading sessions directory")?
                 .filter_map(|e| e.ok())
@@ -102,16 +111,30 @@ async fn main() -> Result<()> {
 
             entries.sort();
 
+            let dbs: Vec<(PathBuf, db::Db)> = cfg
+                .effective_db_paths()
+                .into_iter()
+                .cloned()
+                .map(|p| db::Db::open(&p).map(|db| (p, db)))
+                .collect::<Result<_>>()?;
+            let mut count = 0;
+
             for path in &entries {
-                match parser::import_session(&db, path) {
-                    Ok(true) => {
-                        println!("Imported: {}", path.display());
-                        count += 1;
+                let mut imported_to_any = false;
+                for (db_path, db) in &dbs {
+                    match parser::import_session(db, path) {
+                        Ok(true) => {
+                            println!("Imported to {}: {}", db_path.display(), path.display());
+                            imported_to_any = true;
+                        }
+                        Ok(false) => {}
+                        Err(e) => {
+                            eprintln!("Error importing {} to {}: {}", path.display(), db_path.display(), e);
+                        }
                     }
-                    Ok(false) => {} // skip already imported
-                    Err(e) => {
-                        eprintln!("Error importing {:?}: {}", path, e);
-                    }
+                }
+                if imported_to_any {
+                    count += 1;
                 }
             }
 
