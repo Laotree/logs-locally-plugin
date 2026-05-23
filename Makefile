@@ -1,4 +1,4 @@
-.PHONY: build release install test serve import fmt lint clean
+.PHONY: build release install hooks test serve import fmt lint clean
 
 build:
 	cargo build
@@ -6,8 +6,12 @@ build:
 release:
 	cargo build --release
 
-install: release
+install: release hooks
 	cp target/release/llp ~/.local/bin/llp
+
+hooks:
+	cp hooks/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
 
 test:
 	cargo test

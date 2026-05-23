@@ -1,0 +1,6 @@
+#!/bin/sh
+branch=$(git symbolic-ref HEAD 2>/dev/null | sed 's|refs/heads/||')
+if [ "$branch" = "master" ]; then
+  echo "Direct commits to master are not allowed. Use a feature branch."
+  exit 1
+fi
