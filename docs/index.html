@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logs Locally Plugin — Claude Code Session Log Viewer</title>
+<style>
+  :root { --bg: #0a0a0a; --surface: #121212; --border: #232323; --text: #e5e5e5; --text-dim: #666; --text-muted: #888; --accent: #f5a623; --accent-glow: rgba(245, 166, 35, 0.15); --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+  nav { position: fixed; top: 0; width: 100%; padding: 16px 40px; display: flex; align-items: center; justify-content: space-between; background: rgba(10,10,10,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); z-index: 100; }
+  nav .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
+  nav .logo svg { width: 20px; height: 20px; stroke: var(--accent); }
+  nav .links { display: flex; gap: 24px; }
+  nav .links a { color: var(--text-muted); text-decoration: none; font-size: 14px; transition: color 0.15s; }
+  nav .links a:hover { color: var(--text); }
+
+  .hero { padding: 140px 40px 80px; max-width: 900px; margin: 0 auto; text-align: center; }
+  .hero .badge { display: inline-block; padding: 4px 12px; border-radius: 100px; font-size: 12px; background: var(--accent-glow); color: var(--accent); margin-bottom: 20px; border: 1px solid rgba(245,166,35,0.2); }
+  .hero h1 { font-size: 52px; font-weight: 700; letter-spacing: -1.5px; margin-bottom: 16px; line-height: 1.1; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { font-size: 18px; color: var(--text-muted); max-width: 600px; margin: 0 auto 32px; }
+  .hero .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero .actions a { padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 500; text-decoration: none; transition: all 0.15s; }
+  .hero .actions a.primary { background: var(--accent); color: #0a0a0a; }
+  .hero .actions a.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+  .hero .actions a.secondary { border: 1px solid var(--border); color: var(--text); }
+  .hero .actions a.secondary:hover { border-color: var(--text-muted); }
+  .hero .terminal { margin-top: 48px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; text-align: left; overflow: hidden; }
+  .hero .terminal .bar { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .hero .terminal .bar .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .hero .terminal .bar .dot:nth-child(1) { background: #ff5f56; }
+  .hero .terminal .bar .dot:nth-child(2) { background: #ffbd2e; }
+  .hero .terminal .bar .dot:nth-child(3) { background: #27c93f; }
+  .hero .terminal pre { padding: 20px; font-family: "SF Mono", "JetBrains Mono", monospace; font-size: 13px; line-height: 1.7; color: var(--text-muted); overflow-x: auto; }
+  .hero .terminal pre .cmd { color: var(--accent); }
+  .hero .terminal pre .comment { color: var(--text-dim); }
+
+  section { padding: 80px 40px; max-width: 1000px; margin: 0 auto; }
+  section h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 12px; }
+  section h2 span { color: var(--accent); }
+  section > p { color: var(--text-muted); font-size: 16px; margin-bottom: 40px; max-width: 600px; }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; transition: border-color 0.15s; }
+  .feature:hover { border-color: var(--text-dim); }
+  .feature .icon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-glow); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 20px; }
+  .feature h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .feature p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+  .steps { counter-reset: step; }
+  .step { display: flex; gap: 20px; padding: 24px 0; border-bottom: 1px solid var(--border); }
+  .step:last-child { border-bottom: none; }
+  .step .num { width: 36px; height: 36px; min-width: 36px; border-radius: 50%; background: var(--accent-glow); border: 1px solid rgba(245,166,35,0.2); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--accent); counter-increment: step; }
+  .step .num::before { content: counter(step); }
+  .step .body h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .step .body p { font-size: 14px; color: var(--text-muted); margin-bottom: 8px; }
+  .step .body code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: "SF Mono", "JetBrains Mono", monospace; }
+  .step .body pre { background: #0d0d0d; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: "SF Mono", "JetBrains Mono", monospace; font-size: 13px; line-height: 1.5; margin-top: 8px; }
+
+  .screenshot { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .screenshot .bar { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+  .screenshot .bar .dots { display: flex; gap: 6px; margin-right: 12px; }
+  .screenshot .bar .dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .screenshot .bar .dots span:nth-child(1) { background: #ff5f56; }
+  .screenshot .bar .dots span:nth-child(2) { background: #ffbd2e; }
+  .screenshot .bar .dots span:nth-child(3) { background: #27c93f; }
+  .screenshot .preview { padding: 32px; display: grid; grid-template-columns: 280px 1fr; gap: 24px; min-height: 300px; }
+  .screenshot .preview .sidebar-preview { background: var(--bg); border-radius: 8px; border: 1px solid var(--border); padding: 16px; }
+  .screenshot .preview .sidebar-preview .search { height: 32px; background: #0d0d0d; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; }
+  .screenshot .preview .sidebar-preview .item { height: 14px; background: var(--border); border-radius: 4px; margin-bottom: 10px; }
+  .screenshot .preview .sidebar-preview .item:last-child { width: 60%; }
+  .screenshot .preview .sidebar-preview .item:nth-child(3) { width: 80%; }
+  .screenshot .preview .sidebar-preview .item:nth-child(4) { width: 70%; }
+  .screenshot .preview .main-preview { }
+  .screenshot .preview .main-preview .msg { display: flex; gap: 12px; margin-bottom: 20px; }
+  .screenshot .preview .main-preview .msg .avatar { width: 28px; height: 28px; min-width: 28px; border-radius: 50%; }
+  .screenshot .preview .main-preview .msg .avatar.user { background: var(--border); }
+  .screenshot .preview .main-preview .msg .avatar.claude { background: linear-gradient(135deg, #f5a623, #f5a62388); }
+  .screenshot .preview .main-preview .msg .lines { flex: 1; }
+  .screenshot .preview .main-preview .msg .lines .name { height: 12px; width: 40px; background: var(--border); border-radius: 3px; margin-bottom: 8px; }
+  .screenshot .preview .main-preview .msg .lines .line { height: 10px; background: var(--border); border-radius: 3px; margin-bottom: 6px; }
+  .screenshot .preview .main-preview .msg .lines .line:last-child { width: 70%; }
+
+  footer { border-top: 1px solid var(--border); padding: 40px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  footer a { color: var(--text-muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 32px; }
+    nav { padding: 12px 20px; }
+    .hero { padding: 100px 20px 60px; }
+    section { padding: 60px 20px; }
+    .screenshot .preview { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+    Logs Locally
+  </div>
+  <div class="links">
+    <a href="#features">Features</a>
+    <a href="#install">Install</a>
+    <a href="#usage">Usage</a>
+    <a href="https://github.com/Laotree/logs-locally-plugin" target="_blank">GitHub</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="badge">Claude Code Plugin</div>
+  <h1>Never lose a <span>Claude session</span> again</h1>
+  <p>Automatically save every Claude Code conversation to a local database. Browse, search, and replay your sessions through a beautiful web UI.</p>
+  <div class="actions">
+    <a class="primary" href="#install">Get Started</a>
+    <a class="secondary" href="https://github.com/Laotree/logs-locally-plugin">View on GitHub</a>
+  </div>
+  <div class="terminal">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+    <pre>
+<span class="comment"># Claude Code auto-imports on exit — just browse:</span>
+$ llp serve
+<span class="cmd">Logs Locally Plugin web server running at http://127.0.0.1:8484
+Open your browser and start browsing Claude Code session logs!</span>
+
+<span class="comment"># Or import a specific session:</span>
+$ llp import
+<span class="cmd">Imported: 960a0652-c62c-4ece-b42e-c047ddfbbe7e.jsonl</span>
+
+<span class="comment"># Bulk import all history for a project:</span>
+$ llp import-all ~/my-project
+<span class="cmd">Done. Imported 151 new session(s).</span></pre>
+  </div>
+</div>
+
+<section id="features">
+  <h2>What you <span>get</span></h2>
+  <p>Every Claude Code session is automatically saved and indexed — ready to search, browse, and analyze.</p>
+  <div class="features">
+    <div class="feature">
+      <div class="icon">&#9889;</div>
+      <h3>Zero-effort capture</h3>
+      <p>Just install the plugin and the <code>Stop</code> hook saves each session on exit. No manual exporting.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128269;</div>
+      <h3>Full-text search</h3>
+      <p>Search across all your sessions by keyword, filter by model, or narrow by time range.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128200;</div>
+      <h3>Token &amp; usage stats</h3>
+      <p>Track token consumption per session and per model. See which models you use most.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128065;</div>
+      <h3>Readable transcripts</h3>
+      <p>View full conversation threads with collapsible thinking blocks and tool call details.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128640;</div>
+      <h3>Live auto-refresh</h3>
+      <p>The web UI automatically updates when new sessions are imported — no page reload needed.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128187;</div>
+      <h3>Local &amp; private</h3>
+      <p>Everything stays on your machine. SQLite database, no telemetry, no cloud dependency.</p>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Install <span>in seconds</span></h2>
+  <p>Works with any Claude Code setup. Choose your path.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <h3>Install the binary</h3>
+        <pre>cargo install --git https://github.com/Laotree/logs-locally-plugin</pre>
+        <p>Or build from source: <code>cargo build --release &amp;&amp; cp target/release/llp ~/.local/bin/llp</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <h3>Enable the auto-import hook</h3>
+        <p>The plugin registers a <code>Stop</code> hook. If you installed via marketplace:</p>
+        <pre>/plugin enable logs-locally-plugin@claude-community</pre>
+        <p>Manual setup — add to <code>~/.claude/settings.json</code>:</p>
+        <pre>{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "llp import" }
+        ]
+      }
+    ]
+  }
+}</pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num"></div>
+      <div class="body">
+        <h3>Start browsing</h3>
+        <pre>llp serve</pre>
+        <p>Open <a href="http://127.0.0.1:8484" style="color:var(--accent);">http://127.0.0.1:8484</a> in your browser.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="usage">
+  <h2>Web UI <span>preview</span></h2>
+  <p>A dark-themed log browser inspired by Claude's own design.</p>
+  <div class="screenshot">
+    <div class="bar">
+      <div class="dots"><span></span><span></span><span></span></div>
+      Logs Locally — 127.0.0.1:8484
+    </div>
+    <div class="preview">
+      <div class="sidebar-preview">
+        <div class="search"></div>
+        <div class="item"></div>
+        <div class="item"></div>
+        <div class="item"></div>
+        <div class="item"></div>
+        <div class="item"></div>
+        <div class="item" style="width:65%;"></div>
+        <div class="item" style="width:45%;"></div>
+      </div>
+      <div class="main-preview">
+        <div class="msg">
+          <div class="avatar user"></div>
+          <div class="lines">
+            <div class="name"></div>
+            <div class="line" style="width:85%;"></div>
+            <div class="line" style="width:60%;"></div>
+          </div>
+        </div>
+        <div class="msg">
+          <div class="avatar claude"></div>
+          <div class="lines">
+            <div class="name"></div>
+            <div class="line" style="width:90%;"></div>
+            <div class="line" style="width:75%;"></div>
+            <div class="line" style="width:50%;"></div>
+            <div class="line" style="width:30%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="margin-top: 80px;">Commands</h2>
+  <div class="features" style="margin-top: 0;">
+    <div class="feature">
+      <div class="icon">&#8682;</div>
+      <h3><code>llp import</code></h3>
+      <p>Import the latest Claude Code session for the current project. Idempotent — safe to run on every exit.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#127760;</div>
+      <h3><code>llp serve</code></h3>
+      <p>Start the web log browser. Default: <code>http://127.0.0.1:8484</code>.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128194;</div>
+      <h3><code>llp import-all</code></h3>
+      <p>Bulk import all past sessions for a project. Useful for the initial setup.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p><a href="https://github.com/Laotree/logs-locally-plugin">Logs Locally Plugin</a> &mdash; MIT License &mdash; Built for the <a href="https://code.claude.com">Claude Code</a> ecosystem</p>
+</footer>
+
+</body>
+</html>
