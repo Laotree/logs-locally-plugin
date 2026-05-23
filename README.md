@@ -23,7 +23,7 @@ The `serve` command starts a web UI at `http://127.0.0.1:8484` for browsing and 
 ### Option 1: Install from source
 
 ```bash
-cargo install --git https://github.com/raypar/logs-locally-plugin
+cargo install --git https://github.com/Laotree/logs-locally-plugin
 ```
 
 ### Option 2: Build locally
