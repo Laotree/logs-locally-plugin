@@ -103,6 +103,10 @@ impl Db {
 
     pub fn upsert_session(&self, session: &Session) -> Result<()> {
         let conn = self.conn.lock().unwrap();
+        Self::upsert_session_inner(&conn, session)
+    }
+
+    fn upsert_session_inner(conn: &Connection, session: &Session) -> Result<()> {
         conn.execute(
             "INSERT INTO sessions (id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
@@ -134,6 +138,10 @@ impl Db {
 
     pub fn upsert_message(&self, msg: &Message) -> Result<()> {
         let conn = self.conn.lock().unwrap();
+        Self::upsert_message_inner(&conn, msg)
+    }
+
+    fn upsert_message_inner(conn: &Connection, msg: &Message) -> Result<()> {
         conn.execute(
             "INSERT INTO messages (id, session_id, role, content, created_at, token_count, parent_id, model)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -153,16 +161,32 @@ impl Db {
         Ok(())
     }
 
-    pub fn session_exists(&self, id: &str) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let exists: bool = conn
+    /// Import a session and its messages in a single transaction.
+    /// Returns Ok(true) if imported, Ok(false) if already exists.
+    /// On failure, everything is rolled back — no partial imports.
+    pub fn import_session(&self, session: &Session, messages: &[Message]) -> Result<bool> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction().context("starting transaction")?;
+
+        let exists: bool = tx
             .query_row(
                 "SELECT COUNT(*) > 0 FROM sessions WHERE id = ?1",
-                params![id],
+                params![session.id],
                 |row| row.get(0),
             )
             .context("checking session existence")?;
-        Ok(exists)
+
+        if exists {
+            return Ok(false);
+        }
+
+        Db::upsert_session_inner(&tx, session)?;
+        for msg in messages {
+            Db::upsert_message_inner(&tx, msg)?;
+        }
+
+        tx.commit().context("committing transaction")?;
+        Ok(true)
     }
 
     pub fn list_sessions(
@@ -175,21 +199,22 @@ impl Db {
     ) -> Result<Vec<Session>> {
         let conn = self.conn.lock().unwrap();
         let mut sql = String::from(
-            "SELECT id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version FROM sessions WHERE 1=1",
+            "SELECT s.id, s.title, s.model, s.created_at, s.updated_at, s.message_count, s.token_count, s.cwd, s.git_branch, s.version FROM sessions s WHERE 1=1",
         );
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
         if let Some(model) = model_filter {
-            sql.push_str(" AND model = ?");
+            sql.push_str(" AND s.model = ?");
             param_values.push(Box::new(model.to_string()));
         }
         if let Some(since) = since {
-            sql.push_str(" AND updated_at >= ?");
+            sql.push_str(" AND s.updated_at >= ?");
             param_values.push(Box::new(since.to_string()));
         }
         if let Some(keyword) = keyword {
-            sql.push_str(" AND (title LIKE ? OR id LIKE ?)");
+            sql.push_str(" AND (s.id IN (SELECT DISTINCT session_id FROM messages WHERE content LIKE ?) OR s.title LIKE ? OR s.id LIKE ?)");
             let pattern = format!("%{}%", keyword);
+            param_values.push(Box::new(pattern.clone()));
             param_values.push(Box::new(pattern.clone()));
             param_values.push(Box::new(pattern));
         }
