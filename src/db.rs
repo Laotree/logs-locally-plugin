@@ -101,11 +101,6 @@ impl Db {
         Ok(())
     }
 
-    pub fn upsert_session(&self, session: &Session) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        Self::upsert_session_inner(&conn, session)
-    }
-
     fn upsert_session_inner(conn: &Connection, session: &Session) -> Result<()> {
         conn.execute(
             "INSERT INTO sessions (id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version)
@@ -134,11 +129,6 @@ impl Db {
         )
         .context("upserting session")?;
         Ok(())
-    }
-
-    pub fn upsert_message(&self, msg: &Message) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        Self::upsert_message_inner(&conn, msg)
     }
 
     fn upsert_message_inner(conn: &Connection, msg: &Message) -> Result<()> {
