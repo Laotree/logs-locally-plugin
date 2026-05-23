@@ -1,10 +1,13 @@
-.PHONY: build release test serve import fmt lint clean
+.PHONY: build release install test serve import fmt lint clean
 
 build:
 	cargo build
 
 release:
 	cargo build --release
+
+install: release
+	cp target/release/llp ~/.local/bin/llp
 
 test:
 	cargo test
