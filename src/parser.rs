@@ -160,33 +160,7 @@ fn extract_content(msg: &Value) -> String {
 }
 
 fn iso_now() -> String {
-    // Approximate ISO 8601 without chrono dependency on formatting
-    let duration = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = duration.as_secs();
-    // Simple ISO format
-    let days = secs / 86400;
-    let time_secs = secs % 86400;
-    let hours = time_secs / 3600;
-    let minutes = (time_secs % 3600) / 60;
-    let seconds = time_secs % 60;
-
-    // Approximate year from days since epoch (rough)
-    let year = 1970 + (days as f64 / 365.25) as u64;
-    let remaining_days = days as f64 % 365.25;
-    let month = 1 + (remaining_days / 30.44) as u64;
-    let day = 1 + (remaining_days % 30.44) as u64;
-
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year,
-        month.min(12),
-        day.min(28),
-        hours,
-        minutes,
-        seconds
-    )
+    chrono::Utc::now().to_rfc3339()
 }
 
 /// Find the most recent JSONL file in the project's Claude Code session directory.

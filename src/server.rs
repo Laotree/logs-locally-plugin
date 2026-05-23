@@ -2,27 +2,16 @@ use crate::db::Db;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    response::{
-        sse::{Event, Sse},
-        Html, IntoResponse, Json,
-    },
+    response::{Html, IntoResponse, Json},
     routing::get,
     Router,
 };
-use futures::stream::Stream;
 use serde::Deserialize;
-use std::{
-    convert::Infallible,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-};
-use tokio::sync::broadcast;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Db>,
-    pub tx: broadcast::Sender<String>,
 }
 
 #[derive(Deserialize)]
@@ -35,10 +24,8 @@ pub struct SessionQuery {
 }
 
 pub fn router(db: Db) -> Router {
-    let (tx, _) = broadcast::channel(100);
     let state = AppState {
         db: Arc::new(db),
-        tx,
     };
 
     Router::new()
@@ -47,7 +34,6 @@ pub fn router(db: Db) -> Router {
         .route("/api/sessions/:id", get(get_session))
         .route("/api/sessions/:id/messages", get(get_messages))
         .route("/api/stats", get(get_stats))
-        .route("/api/events", get(sse_handler))
         .with_state(state)
 }
 
@@ -121,34 +107,3 @@ async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
             .into_response(),
     }
 }
-
-async fn sse_handler(
-    State(state): State<AppState>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let rx = state.tx.subscribe();
-    Sse::new(EventStream { rx })
-}
-
-pub struct EventStream {
-    rx: broadcast::Receiver<String>,
-}
-
-impl Stream for EventStream {
-    type Item = Result<Event, Infallible>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.rx.try_recv() {
-            Ok(msg) => Poll::Ready(Some(Ok(Event::default().data(msg)))),
-            Err(broadcast::error::TryRecvError::Closed) => Poll::Ready(None),
-            Err(broadcast::error::TryRecvError::Lagged(_)) => {
-                Poll::Ready(Some(Ok(Event::default().data("reconnect"))))
-            }
-            Err(broadcast::error::TryRecvError::Empty) => {
-                // Short timeout poll to keep SSE alive
-                cx.waker().wake_by_ref();
-                Poll::Pending
-            }
-        }
-    }
-}
-

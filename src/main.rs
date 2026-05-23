@@ -44,8 +44,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let cfg = config::Config::load(Some(&cli.config))
-        .context("failed to load config")?;
+    let cfg = config::Config::load(Some(&cli.config));
 
     match cli.command {
         Commands::Import { file } => {

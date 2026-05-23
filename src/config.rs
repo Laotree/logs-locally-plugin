@@ -1,4 +1,3 @@
-use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -53,16 +52,39 @@ fn dirs_home_dir() -> PathBuf {
 }
 
 impl Config {
-    pub fn load(path: Option<&std::path::Path>) -> Result<Self> {
+    pub fn load(path: Option<&std::path::Path>) -> Self {
         let path = path.unwrap_or_else(|| std::path::Path::new("config.json"));
-        let content =
-            std::fs::read_to_string(path).with_context(|| format!("reading {:?}", path))?;
-        let mut config: Config =
-            serde_json::from_str(&content).with_context(|| format!("parsing {:?}", path))?;
-        // Expand ~ in paths
-        config.db_path = expand_tilde(&config.db_path.to_string_lossy());
-        config.claude_projects_dir = expand_tilde(&config.claude_projects_dir.to_string_lossy());
-        Ok(config)
+        match std::fs::read_to_string(path) {
+            Ok(content) => {
+                match serde_json::from_str::<Config>(&content) {
+                    Ok(mut config) => {
+                        config.db_path = expand_tilde(&config.db_path.to_string_lossy());
+                        config.claude_projects_dir = expand_tilde(&config.claude_projects_dir.to_string_lossy());
+                        config
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: failed to parse {:?}, using defaults: {}", path, e);
+                        Config::default()
+                    }
+                }
+            }
+            Err(_) => {
+                // File not found — use defaults silently
+                Config::default()
+            }
+        }
+    }
+
+    fn default() -> Self {
+        let mut c = Config {
+            db_path: default_db_path(),
+            claude_projects_dir: default_claude_dir(),
+            host: default_host(),
+            port: default_port(),
+        };
+        c.db_path = expand_tilde(&c.db_path.to_string_lossy());
+        c.claude_projects_dir = expand_tilde(&c.claude_projects_dir.to_string_lossy());
+        c
     }
 
     /// Get the project directory name, matching Claude Code's naming convention.
