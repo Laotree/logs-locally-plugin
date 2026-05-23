@@ -20,12 +20,35 @@ The `serve` command starts a web UI at `http://127.0.0.1:8484` for browsing and 
 
 ## Installation
 
+### Option 1: Install from source
+
+```bash
+cargo install --git https://github.com/raypar/logs-locally-plugin
+```
+
+### Option 2: Build locally
+
 ```bash
 cargo build --release
 cp target/release/llp ~/.local/bin/llp
 ```
 
 > Make sure `~/.local/bin` is in your `PATH`.
+
+### Option 3: Install as a Claude Code plugin (marketplace)
+
+Once published to the community marketplace:
+
+```
+/plugin install logs-locally-plugin@claude-community
+```
+
+The plugin provides the `Stop` hook and a `/logs-locally-plugin:serve` skill automatically. After installing, run:
+
+```
+/plugin enable logs-locally-plugin@claude-community
+/reload-plugins
+```
 
 ## Configuration
 
