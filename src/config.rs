@@ -12,7 +12,12 @@ fn expand_tilde(path: &str) -> PathBuf {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    /// Path to the SQLite database file
+    /// One or more SQLite database paths to write to on import.
+    /// The first path is also used for `serve`. When unset, falls back to `db_path`.
+    #[serde(default)]
+    pub db_paths: Vec<PathBuf>,
+
+    /// Legacy single-path field. Used when `db_paths` is absent.
     #[serde(default = "default_db_path")]
     pub db_path: PathBuf,
 
@@ -60,6 +65,11 @@ impl Config {
                     Ok(mut config) => {
                         config.db_path = expand_tilde(&config.db_path.to_string_lossy());
                         config.claude_projects_dir = expand_tilde(&config.claude_projects_dir.to_string_lossy());
+                        config.db_paths = config
+                            .db_paths
+                            .into_iter()
+                            .map(|p| expand_tilde(&p.to_string_lossy()))
+                            .collect();
                         config
                     }
                     Err(e) => {
@@ -77,6 +87,7 @@ impl Config {
 
     fn default() -> Self {
         let mut c = Config {
+            db_paths: Vec::new(),
             db_path: default_db_path(),
             claude_projects_dir: default_claude_dir(),
             host: default_host(),
@@ -85,6 +96,21 @@ impl Config {
         c.db_path = expand_tilde(&c.db_path.to_string_lossy());
         c.claude_projects_dir = expand_tilde(&c.claude_projects_dir.to_string_lossy());
         c
+    }
+
+    /// Returns all DB paths to write to on import.
+    /// Uses `db_paths` when set; falls back to the single `db_path`.
+    pub fn effective_db_paths(&self) -> Vec<&PathBuf> {
+        if self.db_paths.is_empty() {
+            vec![&self.db_path]
+        } else {
+            self.db_paths.iter().collect()
+        }
+    }
+
+    /// Returns the primary DB path (first in list), used by `serve`.
+    pub fn primary_db_path(&self) -> &PathBuf {
+        self.db_paths.first().unwrap_or(&self.db_path)
     }
 
     /// Get the project directory name, matching Claude Code's naming convention.
