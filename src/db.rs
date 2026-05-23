@@ -161,43 +161,31 @@ impl Db {
         Ok(())
     }
 
-    pub fn session_exists(&self, id: &str) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
-        let exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) > 0 FROM sessions WHERE id = ?1",
-                params![id],
-                |row| row.get(0),
-            )
-            .context("checking session existence")?;
-        Ok(exists)
-    }
-
     /// Import a session and its messages in a single transaction.
     /// Returns Ok(true) if imported, Ok(false) if already exists.
     /// On failure, everything is rolled back — no partial imports.
     pub fn import_session(&self, session: &Session, messages: &[Message]) -> Result<bool> {
-        if self.session_exists(&session.id)? {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction().context("starting transaction")?;
+
+        let exists: bool = tx
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sessions WHERE id = ?1",
+                params![session.id],
+                |row| row.get(0),
+            )
+            .context("checking session existence")?;
+
+        if exists {
             return Ok(false);
         }
 
-        let conn = self.conn.lock().unwrap();
-        conn.execute_batch("BEGIN TRANSACTION")
-            .context("starting transaction")?;
-
-        if let Err(e) = Db::upsert_session_inner(&conn, session) {
-            let _ = conn.execute_batch("ROLLBACK");
-            return Err(e);
-        }
-
+        Db::upsert_session_inner(&tx, session)?;
         for msg in messages {
-            if let Err(e) = Db::upsert_message_inner(&conn, msg) {
-                let _ = conn.execute_batch("ROLLBACK");
-                return Err(e);
-            }
+            Db::upsert_message_inner(&tx, msg)?;
         }
 
-        conn.execute_batch("COMMIT").context("committing transaction")?;
+        tx.commit().context("committing transaction")?;
         Ok(true)
     }
 

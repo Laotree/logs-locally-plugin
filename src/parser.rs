@@ -133,6 +133,18 @@ fn extract_content(msg: &Value) -> String {
                     parts.push(text.to_string());
                 } else if let Some(text) = item["thinking"].as_str() {
                     parts.push(format!("[thinking]{}[/thinking]", text));
+                } else if item["type"].as_str() == Some("tool_result") {
+                    if let Some(content) = item["content"].as_array() {
+                        let texts: Vec<&str> = content
+                            .iter()
+                            .filter_map(|c| c["text"].as_str())
+                            .collect();
+                        if !texts.is_empty() {
+                            parts.push(format!("[tool_result]\n{}[/tool_result]", texts.join("\n")));
+                        }
+                    } else if let Some(text) = item["content"].as_str() {
+                        parts.push(format!("[tool_result]\n{}[/tool_result]", text));
+                    }
                 } else if let Some(name) = item["name"].as_str() {
                     if let Some(input) = item["input"].as_str() {
                         parts.push(format!("[tool: {}]\n{}[/tool]", name, input));
@@ -192,15 +204,6 @@ pub fn find_latest_session(claude_projects_dir: &Path, project_path: &Path) -> R
 
 /// Import a session from a single JSONL file into the database.
 pub fn import_session(db: &crate::db::Db, jsonl_path: &Path) -> Result<bool> {
-    let file_name = jsonl_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown");
-
-    if db.session_exists(file_name)? {
-        return Ok(false); // already imported
-    }
-
     let (session, messages) = parse_session_file(jsonl_path)?;
     db.import_session(&session, &messages)
 }
