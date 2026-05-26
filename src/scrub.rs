@@ -34,15 +34,15 @@ fn rules() -> &'static Vec<(Regex, String)> {
                 r#"((?:export +)?[A-Za-z_][A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL)[A-Za-z0-9_]* *= *)([^\s'"]{4,})"#,
                 "${1}<REDACTED>",
             ),
-            // Unix home-directory paths — replace the username segment only
+            // Unix home-directory paths — replace /Users/<name> or /home/<name> with ~
             (
-                r#"(/(?:Users|home)/)([^/\s"'\\]+)"#,
-                "${1}<USER>",
+                r#"/(?:Users|home)/[^/\s"'\\]+"#,
+                "~",
             ),
-            // Windows user-directory paths
+            // Windows user-directory paths — replace C:\Users\<name> with ~
             (
-                r#"(?i)(C:\\Users\\)([^\\]+)"#,
-                "${1}<USER>",
+                r#"(?i)C:\\Users\\[^\\]+"#,
+                "~",
             ),
             // Email addresses (after URL/path patterns to avoid collisions)
             (
@@ -123,21 +123,21 @@ mod tests {
     fn redacts_mac_home_path() {
         let s = scrub_sensitive("working in /Users/alice/Documents/project");
         assert!(!s.contains("/Users/alice"), "got: {s}");
-        assert!(s.contains("/Users/<USER>"), "got: {s}");
+        assert!(s.contains("~/Documents/project"), "got: {s}");
     }
 
     #[test]
     fn redacts_linux_home_path() {
         let s = scrub_sensitive("config at /home/bob/.config/foo");
         assert!(!s.contains("/home/bob"), "got: {s}");
-        assert!(s.contains("/home/<USER>"), "got: {s}");
+        assert!(s.contains("~/.config/foo"), "got: {s}");
     }
 
     #[test]
     fn redacts_windows_home_path() {
         let s = scrub_sensitive(r"C:\Users\Alice\AppData\Roaming");
         assert!(!s.contains("Alice"), "got: {s}");
-        assert!(s.contains("<USER>"), "got: {s}");
+        assert!(s.contains(r"~\AppData\Roaming"), "got: {s}");
     }
 
     #[test]
