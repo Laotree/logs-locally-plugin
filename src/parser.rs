@@ -1,4 +1,5 @@
 use crate::db::{Message, Session};
+use crate::scrub::scrub_sensitive;
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::path::Path;
@@ -58,7 +59,7 @@ pub fn parse_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
                 // Track session metadata from user events
                 if event_type == "user" {
                     if session.cwd.is_none() {
-                        session.cwd = obj["cwd"].as_str().map(|s| s.to_string());
+                        session.cwd = obj["cwd"].as_str().map(|s| scrub_sensitive(s));
                     }
                     if session.git_branch.is_none() {
                         session.git_branch = obj["gitBranch"].as_str().map(|s| s.to_string());
@@ -71,7 +72,7 @@ pub fn parse_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
                 // Process message content
                 if let Some(msg) = obj.get("message") {
                     let role = msg["role"].as_str().unwrap_or(event_type).to_string();
-                    let content = extract_content(msg);
+                    let content = scrub_sensitive(&extract_content(msg));
                     let uuid = obj["uuid"].as_str().unwrap_or("").to_string();
                     let parent_id = obj["parentUuid"].as_str().map(|s| s.to_string());
                     let model = msg["model"].as_str().map(|s| s.to_string());
@@ -104,7 +105,7 @@ pub fn parse_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
             "ai-title" => {
                 if let Some(title) = obj["aiTitle"].as_str() {
                     if session.title.is_none() || session.title.as_deref() == Some("") {
-                        session.title = Some(title.to_string());
+                        session.title = Some(scrub_sensitive(title));
                     }
                 }
             }

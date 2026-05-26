@@ -1,6 +1,7 @@
 mod config;
 mod db;
 mod parser;
+mod scrub;
 mod server;
 
 use anyhow::{Context, Result};
