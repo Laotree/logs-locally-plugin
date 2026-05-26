@@ -2,6 +2,8 @@
 name = "logs-locally-plugin"
 version = "0.1.0"
 edition = "2021"
+description = "Read Claude Code session JSONL files and persist them to a local SQLite database for querying and analysis"
+homepage = "https://github.com/Laotree/logs-locally-plugin"
 
 [[bin]]
 name = "llp"
