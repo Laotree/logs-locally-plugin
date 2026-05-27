@@ -443,19 +443,6 @@ impl Db {
         Ok(messages)
     }
 
-    pub fn get_unscored_session_ids(&self) -> Result<Vec<String>> {
-        let conn = self.conn.lock().unwrap();
-        let mut stmt = conn
-            .prepare("SELECT id FROM sessions WHERE id NOT IN (SELECT session_id FROM scores)")
-            .context("preparing unscored sessions query")?;
-        let ids = stmt
-            .query_map([], |row| row.get(0))
-            .context("querying unscored sessions")?
-            .collect::<Result<Vec<String>, _>>()
-            .context("collecting unscored session ids")?;
-        Ok(ids)
-    }
-
     pub fn get_all_session_ids(&self) -> Result<Vec<String>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
