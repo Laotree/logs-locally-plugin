@@ -37,6 +37,7 @@ pub fn router(db: Db) -> Router {
         .route("/api/sessions/:id/score", get(get_score))
         .route("/api/stats", get(get_stats))
         .route("/api/score-stats", get(get_score_stats))
+        .route("/api/activity", get(get_activity))
         .with_state(state)
 }
 
@@ -188,6 +189,20 @@ async fn get_score_stats(
 ) -> impl IntoResponse {
     match state.db.get_score_aggregates(q.since.as_deref()) {
         Ok(data) => Json(data).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e.to_string() })),
+        )
+            .into_response(),
+    }
+}
+
+async fn get_activity(
+    State(state): State<AppState>,
+    Query(q): Query<SinceQuery>,
+) -> impl IntoResponse {
+    match state.db.get_daily_activity(q.since.as_deref()) {
+        Ok(data) => Json(serde_json::json!({ "days": data })).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
