@@ -631,6 +631,75 @@
     padding: 8px 10px;
   }
 
+  /* Tool result block */
+  .tool-result-block {
+    border: 1px solid rgba(100, 149, 237, 0.2);
+    border-radius: 6px;
+    margin: 8px 0;
+    font-size: 13px;
+    overflow: hidden;
+  }
+
+  .tool-result-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(100, 149, 237, 0.06);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+
+  .tool-result-summary::-webkit-details-marker { display: none; }
+
+  .tool-result-summary::before {
+    content: '▸';
+    font-size: 10px;
+    color: rgba(100, 149, 237, 0.5);
+    flex-shrink: 0;
+  }
+
+  details[open] > .tool-result-summary::before { content: '▾'; }
+
+  .tool-result-label {
+    color: #6495ed;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .tool-result-preview {
+    color: var(--text-dim);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tool-result-body {
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: rgba(255, 255, 255, 0.01);
+    line-height: 1.55;
+  }
+
+  /* Short tool result (no collapse) */
+  .tool-result-short .tool-result-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    background: rgba(100, 149, 237, 0.06);
+    border-bottom: 1px solid rgba(100, 149, 237, 0.12);
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -1001,6 +1070,18 @@ function formatContent(content) {
     /\[thinking\]([\s\S]*?)\[\/thinking\]/g,
     (_, text) => `<details class="thinking-block"><summary>Claude's thinking</summary><div>${text.trim()}</div></details>`
   );
+
+  // Tool result blocks
+  html = html.replace(/\[tool_result\]([\s\S]*?)\[\/tool_result\]/g, (_, body) => {
+    const LIMIT = 200;
+    body = body.trim();
+    if (body.length <= LIMIT) {
+      return `<div class="tool-result-block tool-result-short"><div class="tool-result-header"><span class="tool-result-label">&#x2b1c; tool_result</span></div><div class="tool-result-body">${body}</div></div>`;
+    }
+    const firstLine = body.split('\n')[0].trim();
+    const preview = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : (firstLine + (body.length > firstLine.length ? '…' : ''));
+    return `<details class="tool-result-block"><summary class="tool-result-summary"><span class="tool-result-label">&#x2b1c; tool_result</span><span class="tool-result-preview">${preview}</span></summary><div class="tool-result-body">${body}</div></details>`;
+  });
 
   // Tool calls
   html = html.replace(
