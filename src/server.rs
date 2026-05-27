@@ -36,6 +36,7 @@ pub fn router(db: Db) -> Router {
         .route("/api/sessions/:id/messages", get(get_messages))
         .route("/api/sessions/:id/score", get(get_score))
         .route("/api/stats", get(get_stats))
+        .route("/api/score-stats", get(get_score_stats))
         .with_state(state)
 }
 
@@ -162,9 +163,31 @@ async fn get_score(
     }
 }
 
-async fn get_stats(State(state): State<AppState>) -> impl IntoResponse {
-    match state.db.get_stats() {
+#[derive(Deserialize)]
+pub struct SinceQuery {
+    since: Option<String>,
+}
+
+async fn get_stats(
+    State(state): State<AppState>,
+    Query(q): Query<SinceQuery>,
+) -> impl IntoResponse {
+    match state.db.get_stats(q.since.as_deref()) {
         Ok(stats) => Json(serde_json::json!(stats)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e.to_string() })),
+        )
+            .into_response(),
+    }
+}
+
+async fn get_score_stats(
+    State(state): State<AppState>,
+    Query(q): Query<SinceQuery>,
+) -> impl IntoResponse {
+    match state.db.get_score_aggregates(q.since.as_deref()) {
+        Ok(data) => Json(data).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),

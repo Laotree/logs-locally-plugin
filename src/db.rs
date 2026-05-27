@@ -463,47 +463,108 @@ impl Db {
         Ok(())
     }
 
-    pub fn get_stats(&self) -> Result<Stats> {
+    pub fn get_stats(&self, since: Option<&str>) -> Result<Stats> {
+        let conn = self.conn.lock().unwrap();
+        let pv: Vec<Box<dyn rusqlite::types::ToSql>> = since
+            .iter()
+            .map(|s| Box::new(s.to_string()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let pr: Vec<&dyn rusqlite::types::ToSql> = pv.iter().map(|p| p.as_ref()).collect();
+
+        let where_clause = if since.is_some() { " WHERE updated_at >= ?1" } else { "" };
+
+        let (total_sessions, total_messages, total_tokens): (i64, i64, i64) = conn.query_row(
+            &format!("SELECT COUNT(*), COALESCE(SUM(message_count),0), COALESCE(SUM(token_count),0) FROM sessions{where_clause}"),
+            pr.as_slice(),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).context("querying stats")?;
+
+        let model_sql = format!(
+            "SELECT COALESCE(model,'unknown'), COUNT(*), COALESCE(SUM(message_count),0), COALESCE(SUM(token_count),0)
+             FROM sessions{where_clause} GROUP BY model ORDER BY 4 DESC"
+        );
+        let mut stmt = conn.prepare(&model_sql).context("preparing model stats query")?;
+        let models = stmt.query_map(pr.as_slice(), |row| {
+            Ok(ModelStat { model: row.get(0)?, session_count: row.get(1)?, message_count: row.get(2)?, token_count: row.get(3)? })
+        }).context("querying model stats")?
+          .collect::<Result<Vec<_>, _>>()
+          .context("collecting model stats")?;
+
+        Ok(Stats { total_sessions, total_messages, total_tokens, models })
+    }
+
+    /// Returns per-dimension averages and grade distribution for scored sessions,
+    /// optionally filtered to sessions updated on or after `since` (ISO 8601).
+    pub fn get_score_aggregates(&self, since: Option<&str>) -> Result<serde_json::Value> {
         let conn = self.conn.lock().unwrap();
 
-        let (total_sessions, total_messages, total_tokens): (i64, i64, i64) = conn
-            .query_row(
-                "SELECT COUNT(*) as sessions, COALESCE(SUM(message_count),0) as msgs, COALESCE(SUM(token_count),0) as tokens FROM sessions",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        // Build a reusable dynamic param list
+        let pv: Vec<Box<dyn rusqlite::types::ToSql>> = since
+            .iter()
+            .map(|s| Box::new(s.to_string()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let pr: Vec<&dyn rusqlite::types::ToSql> = pv.iter().map(|p| p.as_ref()).collect();
+
+        let (join_since, unscored_and) = if since.is_some() {
+            (
+                "JOIN sessions s ON sc.session_id = s.id WHERE s.updated_at >= ?1",
+                "AND s.updated_at >= ?1",
             )
-            .context("querying stats")?;
+        } else {
+            ("", "")
+        };
 
-        let mut stmt = conn
-            .prepare(
-                "SELECT COALESCE(model, 'unknown') as model,
-                        COUNT(*) as session_count,
-                        COALESCE(SUM(message_count),0) as msg_count,
-                        COALESCE(SUM(token_count),0) as token_count
-                 FROM sessions
-                 GROUP BY model
-                 ORDER BY token_count DESC",
-            )
-            .context("preparing model stats query")?;
+        let agg_sql = format!(
+            "SELECT COUNT(*),
+                ROUND(AVG(total_score),1),
+                ROUND(AVG(security)*100.0/15,1),
+                ROUND(AVG(effectivity)*100.0/15,1),
+                ROUND(AVG(solidity)*100.0/10,1),
+                ROUND(AVG(efficiency)*100.0/15,1),
+                ROUND(AVG(planning_quality)*100.0/15,1),
+                ROUND(AVG(recovery_ability)*100.0/15,1),
+                ROUND(AVG(hallucination_rate)*100.0/15,1)
+             FROM scores sc {join_since}"
+        );
+        let agg = conn.query_row(&agg_sql, pr.as_slice(), |row| {
+            Ok(serde_json::json!({
+                "scored_count":    row.get::<_,i64>(0).unwrap_or(0),
+                "avg_total":       row.get::<_,f64>(1).unwrap_or(0.0),
+                "avg_security":    row.get::<_,f64>(2).unwrap_or(0.0),
+                "avg_effectivity": row.get::<_,f64>(3).unwrap_or(0.0),
+                "avg_solidity":    row.get::<_,f64>(4).unwrap_or(0.0),
+                "avg_efficiency":  row.get::<_,f64>(5).unwrap_or(0.0),
+                "avg_planning":    row.get::<_,f64>(6).unwrap_or(0.0),
+                "avg_recovery":    row.get::<_,f64>(7).unwrap_or(0.0),
+                "avg_accuracy":    row.get::<_,f64>(8).unwrap_or(0.0),
+            }))
+        }).context("querying score aggregates")?;
 
-        let models = stmt
-            .query_map([], |row| {
-                Ok(ModelStat {
-                    model: row.get(0)?,
-                    session_count: row.get(1)?,
-                    message_count: row.get(2)?,
-                    token_count: row.get(3)?,
-                })
-            })
-            .context("querying model stats")?
-            .collect::<Result<Vec<_>, _>>()
-            .context("collecting model stats")?;
+        // Grade distribution
+        let grade_sql = format!(
+            "SELECT sc.grade, COUNT(*) FROM scores sc {join_since}
+             GROUP BY sc.grade ORDER BY 2 DESC"
+        );
+        let mut stmt = conn.prepare(&grade_sql).context("preparing grade dist query")?;
+        let grades: Vec<serde_json::Value> = stmt.query_map(pr.as_slice(), |row| {
+            Ok(serde_json::json!({ "grade": row.get::<_,String>(0)?, "count": row.get::<_,i64>(1)? }))
+        }).context("querying grade distribution")?
+          .collect::<Result<_, _>>()
+          .context("collecting grade distribution")?;
 
-        Ok(Stats {
-            total_sessions,
-            total_messages,
-            total_tokens,
-            models,
-        })
+        // Unscored sessions in the window
+        let unscored_sql = format!(
+            "SELECT COUNT(*) FROM sessions s
+             WHERE s.id NOT IN (SELECT session_id FROM scores) {unscored_and}"
+        );
+        let unscored: i64 = conn
+            .query_row(&unscored_sql, pr.as_slice(), |row| row.get(0))
+            .context("querying unscored count")?;
+
+        Ok(serde_json::json!({
+            "aggregates": agg,
+            "grade_distribution": grades,
+            "unscored_count": unscored,
+        }))
     }
 }

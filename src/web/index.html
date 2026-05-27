@@ -788,6 +788,217 @@
     border-bottom: 1px solid rgba(100, 149, 237, 0.12);
   }
 
+
+  /* ─── Global Dashboard ───────────────────────────────────────────────── */
+  .dashboard {
+    --br-bg:      #07090f;
+    --br-bg1:     #0d1017;
+    --br-bg2:     #141820;
+    --br-line:    rgba(255,255,255,0.07);
+    --br-ink0:    #e8eaf2;
+    --br-ink2:    #5a6070;
+    --br-accent:  #f5b942;
+    --br-accent2: #6ef3c1;
+    --br-accent3: #ff5577;
+    --br-accent4: #7aa2ff;
+    background: var(--br-bg);
+    padding: 28px 32px 40px;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+    color: var(--br-ink0);
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .db-hero {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 22px 24px;
+    border: 1px solid var(--br-line);
+    background: linear-gradient(180deg, rgba(255,255,255,0.012), transparent 40%), var(--br-bg1);
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .db-hero::before, .db-hero::after {
+    content: ""; position: absolute; width: 12px; height: 12px;
+    border: 1px solid var(--br-accent); opacity: .5;
+  }
+  .db-hero::before { top:-1px; left:-1px; border-right:none; border-bottom:none; }
+  .db-hero::after  { bottom:-1px; right:-1px; border-left:none; border-top:none; }
+
+  .db-rank-box {
+    position: relative;
+    width: 120px; height: 130px;
+    display: grid; place-items: center;
+    font-family: "Oxanium", -apple-system, sans-serif;
+    font-weight: 800; font-size: 130px; line-height: 1;
+    border: 1px solid currentColor;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%);
+    flex-shrink: 0;
+  }
+  .db-rank-box::before {
+    content: "RANK"; position: absolute; left: 7px; top: 5px;
+    font-size: 8px; font-family: var(--font-mono), monospace;
+    letter-spacing: .3em; opacity: .75;
+  }
+  .db-rank-box::after {
+    content: ""; position: absolute; inset: 5px;
+    border: 1px dashed currentColor; opacity: .3; pointer-events: none;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+  }
+
+  .db-rank-meta { display: flex; flex-direction: column; gap: 8px; }
+  .db-meta-label {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px; color: var(--br-ink2); letter-spacing: .22em;
+  }
+  .db-score-display {
+    font-family: "Oxanium", -apple-system, sans-serif;
+    font-size: 50px; font-weight: 700; line-height: 1;
+  }
+  .db-score-display .db-max { font-size: 16px; color: var(--br-ink2); margin-left: 4px; }
+  .db-tier-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 10px; border: 1px solid;
+    font-family: "Oxanium", -apple-system, sans-serif;
+    font-weight: 600; font-size: 11px; letter-spacing: .18em; width: max-content;
+  }
+  .db-tier-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+
+  /* Time-range selector (inside dashboard) */
+  .db-range {
+    display: flex; gap: 2px; border: 1px solid var(--br-line); margin-left: auto;
+  }
+  .db-range-btn {
+    background: transparent; border: none;
+    color: var(--br-ink2);
+    font-family: var(--font-mono), monospace; font-size: 11px;
+    padding: 5px 11px; cursor: pointer; letter-spacing: .1em;
+    transition: color .15s, background .15s;
+  }
+  .db-range-btn:hover { color: var(--br-ink0); }
+  .db-range-btn.active { background: var(--br-accent); color: #000; font-weight: 600; }
+
+  /* KPI row */
+  .db-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .db-kpi {
+    padding: 14px 16px;
+    border: 1px solid var(--br-line);
+    background: var(--br-bg1);
+    position: relative;
+  }
+  .db-kpi::after {
+    content: ""; position: absolute; bottom:-1px; right:-1px;
+    width: 8px; height: 8px; border-bottom: 1px solid var(--br-accent);
+    border-right: 1px solid var(--br-accent); opacity: .4;
+  }
+  .db-kpi-val {
+    font-family: "Oxanium", -apple-system, sans-serif;
+    font-size: 26px; font-weight: 700; color: var(--br-ink0);
+  }
+  .db-kpi-label {
+    font-size: 11px; color: var(--br-ink2);
+    font-family: var(--font-mono), monospace; letter-spacing: .1em; margin-top: 3px;
+  }
+
+  /* Mid: radar + stat bars */
+  .db-mid {
+    display: grid;
+    grid-template-columns: 290px 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: stretch;
+  }
+  .db-panel {
+    position: relative;
+    border: 1px solid var(--br-line);
+    background: linear-gradient(180deg, rgba(255,255,255,0.010), transparent 30%), var(--br-bg1);
+    padding: 16px 18px 18px;
+  }
+  .db-panel::before, .db-panel::after {
+    content: ""; position: absolute; width: 10px; height: 10px;
+    border: 1px solid var(--br-accent); opacity: .35;
+  }
+  .db-panel::before { top:-1px; left:-1px; border-right:none; border-bottom:none; }
+  .db-panel::after  { bottom:-1px; right:-1px; border-left:none; border-top:none; }
+
+  .db-panel-title {
+    font-family: "Oxanium", -apple-system, sans-serif;
+    font-weight: 700; font-size: 10px; letter-spacing: .25em;
+    color: var(--br-ink2); text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .db-panel-title::before {
+    content: ""; display: inline-block; width: 7px; height: 7px;
+    background: var(--br-accent); transform: rotate(45deg);
+  }
+
+  /* Radar */
+  .db-radar-wrap { display: flex; flex: 1; justify-content: center; align-items: center; position: relative; }
+  .db-radar-wrap svg { overflow: visible; }
+  .db-radar-tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--br-bg2); border: 1px solid var(--br-line);
+    padding: 7px 10px; font-size: 11px; color: var(--br-ink0);
+    white-space: nowrap; z-index: 10;
+    font-family: var(--font-mono), monospace;
+  }
+
+  /* Stat bars */
+  .db-statbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--br-line);
+  }
+  .db-statbar:last-child { border-bottom: none; }
+  .db-sb-label {
+    font-size: 12px; color: var(--br-ink0); font-weight: 500;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .db-sb-grade {
+    display: inline-block; min-width: 18px; text-align: center;
+    padding: 1px 4px; font-size: 9px;
+    font-family: "Oxanium", -apple-system, sans-serif; font-weight: 700;
+    border: 1px solid currentColor; flex-shrink: 0;
+  }
+  .db-sb-val {
+    font-family: var(--font-mono), monospace; font-size: 12px;
+    color: var(--br-ink0); font-weight: 600;
+  }
+  .db-sb-track {
+    grid-column: 1 / -1; position: relative; height: 5px;
+    background: rgba(255,255,255,0.07);
+  }
+  .db-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    transition: width 1s cubic-bezier(.2,.7,.2,1);
+    background: linear-gradient(90deg, currentColor, transparent); opacity: .85;
+  }
+  .db-fill::after {
+    content: ""; position: absolute; right: -1px; top: -1px; bottom: -1px;
+    width: 2px; background: currentColor; box-shadow: 0 0 5px currentColor;
+  }
+
+  /* Grade distribution — neon donut */
+  .db-pie-wrap { display: flex; justify-content: center; padding: 6px 0; }
+
+  /* Grade distribution + radar bottom row */
+  .db-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -809,6 +1020,7 @@
     .main-header .back-btn { display: block; }
   }
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 </head>
 <body>
@@ -858,25 +1070,11 @@
   <!-- Main -->
   <div class="main">
     <div class="main-header" id="mainHeader">
-      <button class="back-btn" id="backBtn" onclick="showSidebar()">&#8592;</button>
-      <span class="session-title" id="sessionTitle">Select a session</span>
+      <button class="back-btn" id="backBtn" onclick="handleBack()">&#8592;</button>
+      <span class="session-title" id="sessionTitle">Overview</span>
       <span class="session-meta" id="sessionMeta"></span>
     </div>
-    <div class="messages-container" id="messagesContainer">
-      <div class="empty-state" id="emptyState">
-        <div class="big-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-        </div>
-        <h3>Your session logs</h3>
-        <p>Claude Code sessions are automatically stored here after each conversation. Select one from the sidebar to view its messages.</p>
-        <div class="hint">
-          Sessions are imported via <code>llp import</code> on Claude exit
-        </div>
-      </div>
-    </div>
+    <div class="messages-container" id="messagesContainer"></div>
   </div>
 </div>
 
@@ -1031,6 +1229,14 @@ function showSidebar() {
   document.getElementById('sidebar').classList.remove('hidden');
 }
 
+function handleBack() {
+  if (window.innerWidth > 768) {
+    showDashboard();
+  } else {
+    showSidebar();
+  }
+}
+
 function gradeColor(grade) {
   return { S: '#f5a623', A: '#66bb6a', B: '#42a5f5', C: '#ffa726', D: '#ff7043', F: '#ef5350' }[grade] || '#888';
 }
@@ -1086,8 +1292,7 @@ function renderSessionDetail(session, messages) {
   document.getElementById('sessionMeta').innerHTML = metaParts.join(' &middot; ');
 
   const container = document.getElementById('messagesContainer');
-  const scoreHtml = renderScoreCard(session.score);
-  container.innerHTML = scoreHtml + messages.map(m => renderMessage(m, session.source)).join('');
+  container.innerHTML = messages.map(m => renderMessage(m, session.source)).join('');
   container.scrollTop = 0;
 }
 
@@ -1238,9 +1443,410 @@ function startPolling() {
   }, 10000);
 }
 
+
+/* ── Global Dashboard ───────────────────────────────────────────────────── */
+
+const DB_DIMS = [
+  { key: 'avg_security',    label: 'Security',    short: 'Sec'   },
+  { key: 'avg_effectivity', label: 'Effectivity', short: 'Eff'   },
+  { key: 'avg_solidity',    label: 'Solidity',    short: 'Sol'   },
+  { key: 'avg_efficiency',  label: 'Efficiency',  short: 'Effi'  },
+  { key: 'avg_planning',    label: 'Planning',    short: 'Plan'  },
+  { key: 'avg_recovery',    label: 'Recovery',    short: 'Rec'   },
+  { key: 'avg_accuracy',    label: 'Accuracy',    short: 'Acc'   },
+];
+
+function dbGradeColor(g) {
+  return { S:'#6ef3c1', A:'#f5b942', B:'#7aa2ff', C:'#aaa', D:'#ff7043', F:'#ef5350', '?':'#5a6070' }[g] || '#5a6070';
+}
+function dbGradeFor(pct) {
+  if (pct >= 85) return 'S';
+  if (pct >= 75) return 'A';
+  if (pct >= 65) return 'B';
+  if (pct >= 55) return 'C';
+  if (pct >= 45) return 'D';
+  return 'F';
+}
+
+function renderDashboard(stats, scoreStats, activeRange) {
+  const agg = scoreStats.aggregates || {};
+  const scoredCount = agg.scored_count || 0;
+  const avgTotal = Math.round(agg.avg_total || 0);
+  const grade = scoredCount > 0 ? dbGradeFor(avgTotal) : '?';
+  const rankColor = dbGradeColor(grade);
+  const bgGlow = rankColor + '18';
+  const tierLabel = { S:'ELITE TIER', A:'HIGH TIER', B:'MID TIER', C:'STANDARD', D:'LOW TIER', F:'UNRANKED', '?':'NO DATA' }[grade] || 'STANDARD';
+
+  // KPIs
+  const totalSessions = stats.total_sessions || 0;
+  const totalMessages = stats.total_messages || 0;
+  const totalTokens = formatTokens(stats.total_tokens || 0);
+  const scoredPct = totalSessions > 0 ? Math.round(scoredCount / totalSessions * 100) : 0;
+
+  // Radar SVG
+  const size = 240, cx = 120, cy = 120, r = 86, n = DB_DIMS.length;
+  const angle = i => (Math.PI * 2 * i) / n - Math.PI / 2;
+  const rings = [0.25, 0.5, 0.75, 1].map((k, ri) => {
+    const pts = DB_DIMS.map((_, i) => {
+      const x = cx + Math.cos(angle(i)) * r * k;
+      const y = cy + Math.sin(angle(i)) * r * k;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    return `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1" ${ri===3?'':'stroke-dasharray="2 4"'} opacity="${ri===3?'0.5':'0.3'}"/>`;
+  }).join('');
+  const spokes = DB_DIMS.map((_, i) => {
+    const x = cx + Math.cos(angle(i)) * r;
+    const y = cy + Math.sin(angle(i)) * r;
+    return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>`;
+  }).join('');
+  const labelsSvg = DB_DIMS.map((d, i) => {
+    const lx = cx + Math.cos(angle(i)) * (r + 20);
+    const ly = cy + Math.sin(angle(i)) * (r + 20);
+    return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="rgba(232,234,242,0.7)" font-size="11" text-anchor="middle" dominant-baseline="middle">${d.short}</text>`;
+  }).join('');
+  // Hits
+  const hitsEl = DB_DIMS.map((d, i) => {
+    const x = cx + Math.cos(angle(i)) * r;
+    const y = cy + Math.sin(angle(i)) * r;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="14" fill="transparent" data-dim="${d.label}" data-key="${d.key}" class="db-radar-hit" style="cursor:pointer"/>`;
+  }).join('');
+
+  const radarSvg = `
+    <svg id="db-radar-svg" width="${size}" height="${size}" style="overflow:visible">
+      <defs>
+        <radialGradient id="dbRadarFill" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="${rankColor}" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="${rankColor}" stop-opacity="0.05"/>
+        </radialGradient>
+      </defs>
+      ${rings}${spokes}
+      <polygon id="db-radar-poly" points="${DB_DIMS.map((_,i)=>`${cx},${cy}`).join(' ')}"
+               fill="url(#dbRadarFill)" stroke="${rankColor}" stroke-width="1.5" opacity="0.9"/>
+      <g id="db-radar-dots"></g>
+      ${labelsSvg}${hitsEl}
+    </svg>
+    <div id="db-radar-tooltip" class="db-radar-tooltip" style="display:none;position:absolute"></div>`;
+
+  // Stat bars
+  const statBars = DB_DIMS.map(d => {
+    const pct = Math.round(agg[d.key] || 0);
+    const g = dbGradeFor(pct);
+    const c = dbGradeColor(g);
+    return `
+      <div class="db-statbar">
+        <div class="db-sb-label">
+          <span class="db-sb-grade" style="color:${c};border-color:${c}">${g}</span>
+          ${d.label}
+        </div>
+        <div class="db-sb-val">${pct}%</div>
+        <div class="db-sb-track">
+          <div class="db-fill" data-pct="${pct}" style="color:${c}"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Grade distribution — neon donut
+  const gradeDist = scoreStats.grade_distribution || [];
+  const unscoredCount = scoreStats.unscored_count || 0;
+  const allGrades = ['S','A','B','C','D','F'];
+  const gradeCountMap = {};
+  gradeDist.forEach(g => { gradeCountMap[g.grade] = g.count; });
+  const gradeEntries = allGrades
+    .map(g => ({ label: g, count: gradeCountMap[g] || 0, color: dbGradeColor(g) }))
+    .filter(e => e.count > 0);
+  const totalGraded = gradeEntries.reduce((s, e) => s + e.count, 0) || 1;
+  const dominant = gradeEntries.reduce((a, b) => a.count >= b.count ? a : b);
+
+  const pr = 80, pcx = 110, pcy = 110;
+  const pcirc = 2 * Math.PI * pr;
+  const gapDeg = gradeEntries.length > 1 ? 5 : 0;
+  const totalArcDeg = 360 - gradeEntries.length * gapDeg;
+
+  let ang = -90;
+  const segments = gradeEntries.map(e => {
+    const pct = e.count / totalGraded;
+    const segDeg = pct * totalArcDeg;
+    const startAng = ang + gapDeg / 2;
+    const midDeg = startAng + segDeg / 2;
+    const dash = (segDeg / 360) * pcirc;
+    ang += segDeg + gapDeg;
+    const midRad = midDeg * Math.PI / 180;
+    const lx = +(pcx + Math.cos(midRad) * (pr + 26)).toFixed(1);
+    const ly = +(pcy + Math.sin(midRad) * (pr + 26)).toFixed(1);
+    return { e, pct, dash, gap: pcirc - dash, startAng, lx, ly };
+  });
+
+  const pieArcsSvg = segments.map(({ e, dash, gap, startAng }) =>
+    `<circle cx="${pcx}" cy="${pcy}" r="${pr}"
+      fill="none" stroke="${e.color}" stroke-width="26"
+      stroke-dasharray="0 ${pcirc.toFixed(2)}"
+      data-dash="${dash.toFixed(2)}" data-gap="${gap.toFixed(2)}"
+      transform="rotate(${startAng.toFixed(1)}, ${pcx}, ${pcy})"
+      stroke-linecap="butt"
+      style="filter:drop-shadow(0 0 7px ${e.color}cc);cursor:pointer"/>`
+  ).join('');
+
+  const pieLabelsSvg = segments.map(({ e, pct, lx, ly }) =>
+    `<text x="${lx}" y="${(ly - 6).toFixed(1)}" text-anchor="middle"
+      fill="${e.color}" font-family="Oxanium,sans-serif" font-weight="700" font-size="13"
+    >${e.label}</text>
+    <text x="${lx}" y="${(ly + 7).toFixed(1)}" text-anchor="middle"
+      fill="${e.color}99" font-family="JetBrains Mono,monospace" font-size="9"
+    >${Math.round(pct * 100)}%</text>`
+  ).join('');
+
+  const pieHtml = `<div class="db-pie-wrap">
+    <svg width="220" height="220" viewBox="0 0 220 220" style="overflow:visible">
+      <defs>
+        <filter id="pg-glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <circle cx="${pcx}" cy="${pcy}" r="${pr}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="26"/>
+      <g id="db-pie-arcs">${pieArcsSvg}</g>
+      <g pointer-events="none">${pieLabelsSvg}</g>
+      <text x="${pcx}" y="${pcy - 12}" text-anchor="middle" dominant-baseline="middle"
+        fill="${dominant.color}" font-family="Oxanium,sans-serif" font-weight="800" font-size="42"
+        style="filter:drop-shadow(0 0 14px ${dominant.color})"
+      >${dominant.label}</text>
+      <text x="${pcx}" y="${pcy + 14}" text-anchor="middle" dominant-baseline="middle"
+        fill="rgba(255,255,255,0.22)" font-family="JetBrains Mono,monospace" font-size="8" letter-spacing="2"
+      >TOP GRADE</text>
+      <text x="${pcx}" y="${pcy + 26}" text-anchor="middle" dominant-baseline="middle"
+        fill="rgba(255,255,255,0.14)" font-family="JetBrains Mono,monospace" font-size="8"
+      >${dominant.count} sessions</text>
+    </svg>
+  </div>`;
+
+  return `
+    <div class="dashboard">
+      <div class="db-hero">
+        <div class="db-rank-box" style="color:${rankColor};text-shadow:0 0 28px ${rankColor}66,0 0 5px ${rankColor}aa;background:radial-gradient(circle at 50% 55%,${bgGlow} 0%,transparent 70%)">${grade}</div>
+        <div class="db-rank-meta">
+          <div class="db-meta-label">ALL SESSIONS · OVERALL SCORE</div>
+          <div class="db-score-display"><span id="db-score-num">0</span><span class="db-max">/100</span></div>
+          <div class="db-tier-badge" style="color:${rankColor};border-color:${rankColor}88">
+            <span class="db-tier-dot" style="background:${rankColor};box-shadow:0 0 7px ${rankColor}"></span>
+            ${tierLabel} · ${scoredCount} sessions scored
+          </div>
+        </div>
+        <div class="db-range">
+          ${['1d','7d','14d','28d','ALL'].map(r => `<button class="db-range-btn${r === activeRange ? ' active' : ''}" onclick="loadDashboard('${r}')">${r}</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="db-kpis">
+        <div class="db-kpi">
+          <div class="db-kpi-val">${totalSessions}</div>
+          <div class="db-kpi-label">TOTAL SESSIONS</div>
+        </div>
+        <div class="db-kpi">
+          <div class="db-kpi-val">${totalMessages}</div>
+          <div class="db-kpi-label">TOTAL MESSAGES</div>
+        </div>
+        <div class="db-kpi">
+          <div class="db-kpi-val">${totalTokens}</div>
+          <div class="db-kpi-label">TOTAL TOKENS</div>
+        </div>
+        <div class="db-kpi">
+          <div class="db-kpi-val">${scoredPct}%</div>
+          <div class="db-kpi-label">SCORED RATE</div>
+        </div>
+      </div>
+
+      <div class="db-mid">
+        <div class="db-panel" style="display:flex;flex-direction:column">
+          <div class="db-panel-title">Ability Radar</div>
+          <div class="db-radar-wrap" id="db-radar-wrap">
+            ${radarSvg}
+          </div>
+        </div>
+        <div class="db-panel">
+          <div class="db-panel-title">Dimension Averages</div>
+          ${statBars}
+        </div>
+      </div>
+
+      <div class="db-panel">
+        <div class="db-panel-title">Grade Distribution</div>
+        ${pieHtml}
+      </div>
+    </div>`;
+}
+
+function animateDashboard(scoreStats) {
+  const agg = scoreStats.aggregates || {};
+  const avgTotal = Math.round(agg.avg_total || 0);
+
+  // Count-up score
+  const el = document.getElementById('db-score-num');
+  if (el) {
+    let t0;
+    function step(t) {
+      if (!t0) t0 = t;
+      const k = Math.min((t - t0) / 1100, 1);
+      const eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(avgTotal * eased);
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Radar polygon
+  const poly = document.getElementById('db-radar-poly');
+  const dotsG = document.getElementById('db-radar-dots');
+  if (poly) {
+    const size = 240, cx = 120, cy = 120, r = 86, n = DB_DIMS.length;
+    const angle = i => (Math.PI * 2 * i) / n - Math.PI / 2;
+    const targets = DB_DIMS.map(d => Math.min(100, Math.max(0, agg[d.key] || 0)) / 100);
+    const rankColor = poly.getAttribute('stroke') || '#f5b942';
+    let t0;
+    function radar(t) {
+      if (!t0) t0 = t;
+      const k = Math.min((t - t0) / 1200, 1);
+      const eased = 1 - Math.pow(1 - k, 3);
+      const pts = targets.map((tv, i) => {
+        const x = cx + Math.cos(angle(i)) * r * tv * eased;
+        const y = cy + Math.sin(angle(i)) * r * tv * eased;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      poly.setAttribute('points', pts);
+      if (k >= 1 && dotsG) {
+        dotsG.innerHTML = targets.map((tv, i) => {
+          const x = (cx + Math.cos(angle(i)) * r * tv).toFixed(1);
+          const y = (cy + Math.sin(angle(i)) * r * tv).toFixed(1);
+          return `<circle cx="${x}" cy="${y}" r="4" fill="#0d1017" stroke="${rankColor}" stroke-width="2"/>`;
+        }).join('');
+      }
+      if (k < 1) requestAnimationFrame(radar);
+    }
+    requestAnimationFrame(radar);
+
+    // Hover tooltips
+    document.querySelectorAll('.db-radar-hit').forEach(el => {
+      const tip = document.getElementById('db-radar-tooltip');
+      if (!tip) return;
+      el.addEventListener('mouseenter', () => {
+        const pct = Math.round(agg[el.dataset.key] || 0);
+        tip.innerHTML = `<b>${el.dataset.dim}</b><br>Avg ${pct}%`;
+        tip.style.display = 'block';
+      });
+      el.addEventListener('mousemove', e => {
+        const wrap = tip.parentElement.getBoundingClientRect();
+        tip.style.left = (e.clientX - wrap.left + 12) + 'px';
+        tip.style.top  = (e.clientY - wrap.top  + 12) + 'px';
+      });
+      el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    });
+  }
+
+  // Stat bar fills
+  setTimeout(() => {
+    document.querySelectorAll('.db-fill').forEach(el => {
+      el.style.width = (el.dataset.pct || '0') + '%';
+    });
+  }, 80);
+
+  // Animate pie chart arcs — staggered sweep
+  const pieArcEls = Array.from(document.querySelectorAll('#db-pie-arcs circle'));
+  if (pieArcEls.length > 0) {
+    pieArcEls.forEach((el, idx) => {
+      const targetDash = parseFloat(el.dataset.dash);
+      const circ = targetDash + parseFloat(el.dataset.gap);
+      const delay = idx * 110;
+      let t0;
+      function step(t) {
+        if (!t0) t0 = t;
+        const elapsed = t - t0;
+        if (elapsed < delay) { requestAnimationFrame(step); return; }
+        const k = Math.min((elapsed - delay) / 750, 1);
+        const eased = 1 - Math.pow(1 - k, 3);
+        const cur = +(targetDash * eased).toFixed(2);
+        el.style.strokeDasharray = `${cur} ${(circ - cur).toFixed(2)}`;
+        if (k < 1) requestAnimationFrame(step);
+        else {
+          // glow pulse on completion
+          el.style.transition = 'filter .3s';
+          el.style.filter = `drop-shadow(0 0 14px ${el.getAttribute('stroke')})`;
+          setTimeout(() => {
+            el.style.filter = `drop-shadow(0 0 7px ${el.getAttribute('stroke')}cc)`;
+          }, 300);
+        }
+      }
+      requestAnimationFrame(step);
+    });
+    // Hover: brighten hovered arc, dim others
+    setTimeout(() => {
+      pieArcEls.forEach(el => {
+        const col = el.getAttribute('stroke');
+        el.addEventListener('mouseenter', () => {
+          pieArcEls.forEach(o => {
+            o.style.opacity = o === el ? '1' : '0.25';
+            o.style.filter = o === el ? `drop-shadow(0 0 18px ${col}) drop-shadow(0 0 6px ${col})` : 'none';
+          });
+        });
+        el.addEventListener('mouseleave', () => {
+          pieArcEls.forEach(o => {
+            o.style.opacity = '1';
+            o.style.filter = `drop-shadow(0 0 7px ${o.getAttribute('stroke')}cc)`;
+          });
+        });
+      });
+    }, pieArcEls.length * 110 + 800);
+  }
+}
+
+let dashboardRange = 'ALL';
+
+function dashSinceIso(range) {
+  if (!range || range === 'ALL') return '';
+  const hours = { '1d': 24, '7d': 168, '14d': 336, '28d': 672 }[range] || 0;
+  if (!hours) return '';
+  const d = new Date();
+  d.setHours(d.getHours() - hours);
+  return d.toISOString();
+}
+
+async function loadDashboard(range) {
+  dashboardRange = range || 'ALL';
+  const container = document.getElementById('messagesContainer');
+  if (!container) return;
+
+  const since = dashSinceIso(dashboardRange);
+  const sinceParam = since ? `?since=${encodeURIComponent(since)}` : '';
+
+  try {
+    const [stats, scoreStats] = await Promise.all([
+      api(`/api/stats${sinceParam}`),
+      api(`/api/score-stats${sinceParam}`),
+    ]);
+    container.innerHTML = renderDashboard(stats, scoreStats, dashboardRange);
+    requestAnimationFrame(() => requestAnimationFrame(() => animateDashboard(scoreStats)));
+  } catch(e) {
+    container.innerHTML = `<div class="empty-state"><p>Failed to load dashboard: ${e.message}</p></div>`;
+  }
+}
+
+async function showDashboard() {
+  selectedId = null;
+  renderSessionList();
+  document.getElementById('sessionTitle').textContent = 'Overview';
+  document.getElementById('sessionMeta').textContent = '';
+  document.getElementById('backBtn').style.display = '';   // reset to CSS default (hidden on desktop)
+  // Mobile
+  document.getElementById('sidebar').classList.remove('hidden');
+
+  const container = document.getElementById('messagesContainer');
+  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:13px;">Loading dashboard…</div>';
+
+  await loadDashboard(dashboardRange);
+}
+
 async function init() {
   await loadModels();
   await loadSessions();
+  await showDashboard();
   startPolling();
 }
 
