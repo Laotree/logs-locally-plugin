@@ -18,6 +18,8 @@ pub struct Session {
     pub cwd: Option<String>,
     pub git_branch: Option<String>,
     pub version: Option<String>,
+    /// Origin agent: "claude" | "pi"
+    pub source: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -80,7 +82,8 @@ impl Db {
                 token_count INTEGER DEFAULT 0,
                 cwd TEXT,
                 git_branch TEXT,
-                version TEXT
+                version TEXT,
+                source TEXT NOT NULL DEFAULT 'claude'
             );
 
             CREATE TABLE IF NOT EXISTS messages (
@@ -114,13 +117,20 @@ impl Db {
             ",
         )
         .context("running migrations")?;
+
+        // Idempotent: add source column to existing databases (silently ignore if already present).
+        let _ = conn.execute(
+            "ALTER TABLE sessions ADD COLUMN source TEXT NOT NULL DEFAULT 'claude'",
+            [],
+        );
+
         Ok(())
     }
 
     fn upsert_session_inner(conn: &Connection, session: &Session) -> Result<()> {
         conn.execute(
-            "INSERT INTO sessions (id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            "INSERT INTO sessions (id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version, source)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
              ON CONFLICT(id) DO UPDATE SET
                 title = COALESCE(?2, title),
                 model = COALESCE(?3, model),
@@ -141,6 +151,7 @@ impl Db {
                 session.cwd,
                 session.git_branch,
                 session.version,
+                session.source,
             ],
         )
         .context("upserting session")?;
@@ -306,6 +317,7 @@ impl Db {
     pub fn list_sessions(
         &self,
         model_filter: Option<&str>,
+        source_filter: Option<&str>,
         since: Option<&str>,
         keyword: Option<&str>,
         limit: i64,
@@ -313,13 +325,17 @@ impl Db {
     ) -> Result<Vec<Session>> {
         let conn = self.conn.lock().unwrap();
         let mut sql = String::from(
-            "SELECT s.id, s.title, s.model, s.created_at, s.updated_at, s.message_count, s.token_count, s.cwd, s.git_branch, s.version FROM sessions s WHERE 1=1",
+            "SELECT s.id, s.title, s.model, s.created_at, s.updated_at, s.message_count, s.token_count, s.cwd, s.git_branch, s.version, s.source FROM sessions s WHERE 1=1",
         );
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
         if let Some(model) = model_filter {
             sql.push_str(" AND s.model = ?");
             param_values.push(Box::new(model.to_string()));
+        }
+        if let Some(source) = source_filter {
+            sql.push_str(" AND s.source = ?");
+            param_values.push(Box::new(source.to_string()));
         }
         if let Some(since) = since {
             sql.push_str(" AND s.updated_at >= ?");
@@ -354,6 +370,7 @@ impl Db {
                     cwd: row.get(7)?,
                     git_branch: row.get(8)?,
                     version: row.get(9)?,
+                    source: row.get::<_, Option<String>>(10)?.unwrap_or_else(|| "claude".to_string()),
                 })
             })
             .context("querying sessions")?
@@ -367,7 +384,7 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
             .prepare(
-                "SELECT id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version
+                "SELECT id, title, model, created_at, updated_at, message_count, token_count, cwd, git_branch, version, source
                  FROM sessions WHERE id = ?1",
             )
             .context("preparing get session query")?;
@@ -385,6 +402,7 @@ impl Db {
                     cwd: row.get(7)?,
                     git_branch: row.get(8)?,
                     version: row.get(9)?,
+                    source: row.get::<_, Option<String>>(10)?.unwrap_or_else(|| "claude".to_string()),
                 })
             })
             .context("querying session")?;

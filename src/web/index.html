@@ -189,6 +189,26 @@
     opacity: 0.7;
   }
 
+  /* Source badge (claude / pi) */
+  .source-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .source-badge.source-claude {
+    background: rgba(245, 166, 35, 0.1);
+    color: rgba(245, 166, 35, 0.7);
+  }
+  .source-badge.source-pi {
+    background: rgba(100, 149, 237, 0.15);
+    color: #6495ed;
+  }
+
   /* Main content */
   .main {
     flex: 1;
@@ -747,6 +767,13 @@
     </div>
     <div class="filter-row">
       <select id="filterModel" onchange="loadSessions()"><option value="">All models</option></select>
+      <select id="filterSource" onchange="loadSessions()">
+        <option value="">All sources</option>
+        <option value="claude">Claude</option>
+        <option value="pi">Pi</option>
+      </select>
+    </div>
+    <div class="filter-row">
       <select id="filterSince" onchange="loadSessions()">
         <option value="">Any time</option>
         <option value="24h">Today</option>
@@ -854,10 +881,12 @@ function onSearchInput() {
 
 async function loadSessions() {
   const model = document.getElementById('filterModel').value;
+  const source = document.getElementById('filterSource').value;
   const since = getSinceDate(document.getElementById('filterSince').value);
   const q = document.getElementById('searchInput').value.trim();
   const params = new URLSearchParams({ limit: '200' });
   if (model) params.set('model', model);
+  if (source) params.set('source', source);
   if (since) params.set('since', since);
   if (q) params.set('q', q);
 
@@ -882,11 +911,14 @@ function renderSessionList() {
     const scoreBadge = s.score
       ? `<span class="score-badge grade-${s.score.grade}">${s.score.grade} ${s.score.total}</span>`
       : '';
+    const src = s.source || 'claude';
+    const sourceBadge = `<span class="source-badge source-${src}">${src}</span>`;
     return `
     <div class="session-item ${s.id === selectedId ? 'active' : ''}"
          onclick="selectSession('${s.id}')">
       <div class="title">
         <span class="name">${escHtml(s.title || s.id.slice(0, 12))}</span>
+        ${sourceBadge}
         ${scoreBadge}
       </div>
       <div class="meta">
@@ -1128,10 +1160,12 @@ function startPolling() {
     const prevCount = allSessions.length;
     try {
       const model = document.getElementById('filterModel').value;
+      const source = document.getElementById('filterSource').value;
       const since = getSinceDate(document.getElementById('filterSince').value);
       const q = document.getElementById('searchInput').value.trim();
       const params = new URLSearchParams({ limit: '200' });
       if (model) params.set('model', model);
+      if (source) params.set('source', source);
       if (since) params.set('since', since);
       if (q) params.set('q', q);
       const data = await api(`/api/sessions?${params}`);
