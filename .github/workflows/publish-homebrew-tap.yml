@@ -1,7 +1,12 @@
 name: Publish Homebrew Tap
 
-# Triggers on any v* tag push, or manually via workflow_dispatch
-# (use dispatch to retroactively publish an already-pushed tag, e.g. v0.3.0)
+# Fires on any v* tag push, or manually for retroactive publishes.
+# Delegates all formula update logic to Laotree/homebrew-tap via
+# repository_dispatch — no direct writes to the tap repo needed here.
+#
+# Required secret: HOMEBREW_TAP_TOKEN
+#   A fine-grained PAT scoped to Laotree/homebrew-tap with
+#   "Contents: write" permission (needed to send repository_dispatch).
 on:
   push:
     tags:
@@ -13,19 +18,10 @@ on:
         required: true
 
 jobs:
-  publish:
+  dispatch:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write   # allows pushing back to this repo's master
-
     steps:
-      - name: Checkout master
-        uses: actions/checkout@v4
-        with:
-          ref: master
-          fetch-depth: 0   # fetch all tags so rev-parse can resolve them
-
-      - name: Resolve tag and commit SHA
+      - name: Resolve tag
         id: tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -33,47 +29,22 @@ jobs:
           else
             TAG="${GITHUB_REF_NAME}"
           fi
-          # Dereference annotated tag → underlying commit SHA
-          SHA=$(git rev-parse "refs/tags/${TAG}^{commit}")
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
 
-      # ── 1. Update the formula copy kept in this repo ──────────────────────
-      - name: Patch homebrew/Formula/llp.rb
-        run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          SHA="${{ steps.tag.outputs.sha }}"
-          sed -i "s|tag: \"v[0-9.]*\"|tag: \"${TAG}\"|"         homebrew/Formula/llp.rb
-          sed -i "s|revision: \"[0-9a-f]*\"|revision: \"${SHA}\"|" homebrew/Formula/llp.rb
-
-      - name: Commit local formula update
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add homebrew/Formula/llp.rb
-          # no-op if formula was already up to date
-          git diff --staged --quiet || \
-            git commit -m "chore: sync Homebrew formula to ${{ steps.tag.outputs.tag }} [skip ci]"
-          git push
-
-      # ── 2. Update Laotree/homebrew-tap ────────────────────────────────────
-      - name: Push updated formula to homebrew-tap
+      - name: Trigger homebrew-tap update
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          TAG: ${{ steps.tag.outputs.tag }}
-          SHA: ${{ steps.tag.outputs.sha }}
         run: |
-          git clone \
-            "https://x-access-token:${TAP_TOKEN}@github.com/Laotree/homebrew-tap.git" \
-            /tmp/homebrew-tap
-
-          cd /tmp/homebrew-tap
-          sed -i "s|tag: \"v[0-9.]*\"|tag: \"${TAG}\"|"            Formula/llp.rb
-          sed -i "s|revision: \"[0-9a-f]*\"|revision: \"${SHA}\"|" Formula/llp.rb
-
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/llp.rb
-          # no-op if tap was already at this version
-          git diff --staged --quiet || git commit -m "chore: update llp to ${TAG}"
-          git push
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${TAP_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/Laotree/homebrew-tap/dispatches \
+            -d '{
+              "event_type": "update-formula",
+              "client_payload": {
+                "formula": "llp",
+                "version": "${{ steps.tag.outputs.tag }}"
+              }
+            }'
