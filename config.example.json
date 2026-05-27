@@ -1,6 +1,7 @@
 {
   "db_path": "~/.local/share/logs-locally-plugin/logs.db",
   "claude_projects_dir": "~/.claude/projects",
+  "piJsonlDir": "~/.pi/agent/sessions",
   "host": "127.0.0.1",
   "port": 8484
 }

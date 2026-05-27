@@ -25,6 +25,11 @@ pub struct Config {
     #[serde(default = "default_claude_dir")]
     pub claude_projects_dir: PathBuf,
 
+    /// Pi agent sessions directory (optional).
+    /// Set to `~/.pi/agent/sessions` (or a custom path) to also import pi sessions.
+    #[serde(rename = "piJsonlDir")]
+    pub pi_jsonl_dir: Option<PathBuf>,
+
     /// Host for the web server
     #[serde(default = "default_host")]
     pub host: String,
@@ -70,6 +75,8 @@ impl Config {
                             .into_iter()
                             .map(|p| expand_tilde(&p.to_string_lossy()))
                             .collect();
+                        config.pi_jsonl_dir = config.pi_jsonl_dir
+                            .map(|p| expand_tilde(&p.to_string_lossy()));
                         config
                     }
                     Err(e) => {
@@ -90,6 +97,7 @@ impl Config {
             db_paths: Vec::new(),
             db_path: default_db_path(),
             claude_projects_dir: default_claude_dir(),
+            pi_jsonl_dir: None,
             host: default_host(),
             port: default_port(),
         };
