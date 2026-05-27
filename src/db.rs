@@ -1,6 +1,8 @@
+use crate::scorer::Score;
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -95,6 +97,20 @@ impl Db {
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
             CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at);
+
+            CREATE TABLE IF NOT EXISTS scores (
+                session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+                total_score INTEGER NOT NULL,
+                security INTEGER NOT NULL,
+                effectivity INTEGER NOT NULL,
+                solidity INTEGER NOT NULL,
+                efficiency INTEGER NOT NULL,
+                planning_quality INTEGER NOT NULL,
+                recovery_ability INTEGER NOT NULL,
+                hallucination_rate INTEGER NOT NULL,
+                grade TEXT NOT NULL,
+                scored_at TEXT NOT NULL
+            );
             ",
         )
         .context("running migrations")?;
@@ -177,6 +193,114 @@ impl Db {
 
         tx.commit().context("committing transaction")?;
         Ok(true)
+    }
+
+    pub fn upsert_score(&self, score: &Score) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO scores (session_id, total_score, security, effectivity, solidity, efficiency, planning_quality, recovery_ability, hallucination_rate, grade, scored_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+             ON CONFLICT(session_id) DO UPDATE SET
+                total_score = ?2, security = ?3, effectivity = ?4, solidity = ?5,
+                efficiency = ?6, planning_quality = ?7, recovery_ability = ?8,
+                hallucination_rate = ?9, grade = ?10, scored_at = ?11",
+            params![
+                score.session_id,
+                score.total_score,
+                score.security,
+                score.effectivity,
+                score.solidity,
+                score.efficiency,
+                score.planning_quality,
+                score.recovery_ability,
+                score.hallucination_rate,
+                score.grade,
+                score.scored_at,
+            ],
+        )
+        .context("upserting score")?;
+        Ok(())
+    }
+
+    pub fn get_score(&self, session_id: &str) -> Result<Option<Score>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT session_id, total_score, security, effectivity, solidity, efficiency,
+                        planning_quality, recovery_ability, hallucination_rate, grade, scored_at
+                 FROM scores WHERE session_id = ?1",
+            )
+            .context("preparing get score query")?;
+
+        let mut rows = stmt
+            .query_map(params![session_id], |row| {
+                Ok(Score {
+                    session_id: row.get(0)?,
+                    total_score: row.get(1)?,
+                    security: row.get(2)?,
+                    effectivity: row.get(3)?,
+                    solidity: row.get(4)?,
+                    efficiency: row.get(5)?,
+                    planning_quality: row.get(6)?,
+                    recovery_ability: row.get(7)?,
+                    hallucination_rate: row.get(8)?,
+                    grade: row.get(9)?,
+                    scored_at: row.get(10)?,
+                })
+            })
+            .context("querying score")?;
+
+        match rows.next() {
+            Some(Ok(score)) => Ok(Some(score)),
+            _ => Ok(None),
+        }
+    }
+
+    /// Fetch scores for a batch of session IDs in one query.
+    pub fn get_scores_for_sessions(
+        &self,
+        session_ids: &[String],
+    ) -> Result<HashMap<String, Score>> {
+        if session_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let conn = self.conn.lock().unwrap();
+        let placeholders = session_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT session_id, total_score, security, effectivity, solidity, efficiency,
+                    planning_quality, recovery_ability, hallucination_rate, grade, scored_at
+             FROM scores WHERE session_id IN ({})",
+            placeholders
+        );
+        let mut stmt = conn.prepare(&sql).context("preparing batch scores query")?;
+        let param_values: Vec<Box<dyn rusqlite::types::ToSql>> = session_ids
+            .iter()
+            .map(|s| Box::new(s.clone()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let params_refs: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(|p| p.as_ref()).collect();
+
+        let scores = stmt
+            .query_map(params_refs.as_slice(), |row| {
+                Ok(Score {
+                    session_id: row.get(0)?,
+                    total_score: row.get(1)?,
+                    security: row.get(2)?,
+                    effectivity: row.get(3)?,
+                    solidity: row.get(4)?,
+                    efficiency: row.get(5)?,
+                    planning_quality: row.get(6)?,
+                    recovery_ability: row.get(7)?,
+                    hallucination_rate: row.get(8)?,
+                    grade: row.get(9)?,
+                    scored_at: row.get(10)?,
+                })
+            })
+            .context("querying batch scores")?
+            .collect::<Result<Vec<_>, _>>()
+            .context("collecting batch scores")?;
+
+        Ok(scores.into_iter().map(|s| (s.session_id.clone(), s)).collect())
     }
 
     pub fn list_sessions(
