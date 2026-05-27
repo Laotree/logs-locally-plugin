@@ -563,6 +563,74 @@
     text-align: right;
   }
 
+  /* System XML tags (e.g. <command-name>, <local-command-caveat>, <system-reminder>) */
+  .sys-tag {
+    display: inline;
+    color: rgba(245, 166, 35, 0.65);
+    background: rgba(245, 166, 35, 0.07);
+    border: 1px solid rgba(245, 166, 35, 0.18);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-size: 0.88em;
+    font-family: var(--font-mono);
+    cursor: default;
+    white-space: nowrap;
+  }
+
+  .sys-tag-block {
+    margin: 4px 0;
+    border-left: 2px solid rgba(245, 166, 35, 0.2);
+    padding-left: 10px;
+  }
+
+  .sys-tag-summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-dim);
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sys-tag-summary::-webkit-details-marker { display: none; }
+
+  .sys-tag-summary::before {
+    content: '▸';
+    font-size: 10px;
+    color: rgba(245, 166, 35, 0.4);
+    flex-shrink: 0;
+  }
+
+  details[open] > .sys-tag-summary::before { content: '▾'; }
+
+  .sys-tag-name {
+    color: rgba(245, 166, 35, 0.55);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .sys-tag-preview {
+    color: var(--text-dim);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sys-tag-content {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+    padding: 8px 10px;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -883,8 +951,32 @@ function renderMessage(msg) {
   `;
 }
 
+// Render a single system XML tag. Called after placeholder restoration.
+function renderSysTagHtml(tag, inner) {
+  if (!inner) return ''; // hide empty tags
+
+  // Short single-line: inline chip showing content, tag name on hover
+  if (inner.length <= 120 && !inner.includes('\n')) {
+    return `<span class="sys-tag" title="${escHtml(tag)}">${escHtml(inner)}</span>`;
+  }
+
+  // Long or multi-line: collapsible block
+  const firstLine = inner.split('\n')[0].trim();
+  const preview = escHtml(firstLine.slice(0, 60)) + (firstLine.length > 60 || inner.includes('\n') ? '…' : '');
+  return `<details class="sys-tag-block"><summary class="sys-tag-summary"><span class="sys-tag-name">&lt;${escHtml(tag)}&gt;</span><span class="sys-tag-preview">${preview}</span></summary><div class="sys-tag-content">${escHtml(inner)}</div></details>`;
+}
+
 function formatContent(content) {
   if (!content) return '<em style="color:var(--text-dim)">empty</em>';
+
+  // Extract system XML tags (hyphenated, e.g. <command-name>, <local-command-caveat>)
+  // before HTML escaping so we control their rendering.
+  const sysTags = [];
+  content = content.replace(/<([a-z][a-z0-9]*(?:-[a-z0-9]+)+)>([\s\S]*?)<\/\1>/g, (_, tag, inner) => {
+    const idx = sysTags.length;
+    sysTags.push({ tag, inner: inner.trim() });
+    return `SYSTAG${idx}`;
+  });
 
   let html = escHtml(content);
 
@@ -914,6 +1006,14 @@ function formatContent(content) {
   html = '<p>' + html + '</p>';
   // Remove empty paragraphs
   html = html.replace(/<p>\s*<\/p>/g, '');
+
+  // Restore system tag placeholders (after escaping so their HTML is not escaped)
+  if (sysTags.length > 0) {
+    html = html.replace(/SYSTAG(\d+)/g, (_, i) => {
+      const { tag, inner } = sysTags[+i];
+      return renderSysTagHtml(tag, inner);
+    });
+  }
 
   return html;
 }
