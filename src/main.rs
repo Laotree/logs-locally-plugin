@@ -53,12 +53,13 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Import { file } => {
+            let cwd = std::env::current_dir().context("getting current directory")?;
+
             let jsonl_path = if let Some(path) = file {
                 path
             } else {
-                let cwd = std::env::current_dir().context("getting current directory")?;
                 parser::find_latest_session(&cfg.claude_projects_dir, &cwd)?
-                    .context("no session files found for this project")?
+                    .context("no Claude session files found for this project")?
             };
 
             let mut any_imported = false;
@@ -77,6 +78,30 @@ async fn main() -> Result<()> {
                     }
                 }
             }
+
+            // Also import the latest pi session for this project, if configured.
+            if let Some(ref pi_dir) = cfg.pi_jsonl_dir {
+                match parser::find_latest_pi_session(pi_dir, &cwd) {
+                    Ok(Some(pi_path)) => {
+                        for db_path in cfg.effective_db_paths() {
+                            let db = db::Db::open(db_path)?;
+                            match parser::import_pi_session(&db, &pi_path) {
+                                Ok(true) => {
+                                    println!("Imported pi session to {}: {}", db_path.display(), pi_path.display());
+                                    any_imported = true;
+                                }
+                                Ok(false) => {}
+                                Err(e) => {
+                                    eprintln!("Error importing pi session: {}", e);
+                                }
+                            }
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => eprintln!("Warning: could not search pi sessions: {}", e),
+                }
+            }
+
             if !any_imported {
                 println!("No new data imported.");
             }
@@ -103,18 +128,32 @@ async fn main() -> Result<()> {
             let project_dir_name = config::Config::project_dir_name(&project_dir);
             let sessions_dir = cfg.claude_projects_dir.join(&project_dir_name);
 
-            if !sessions_dir.exists() {
-                anyhow::bail!("sessions directory not found: {:?}", sessions_dir);
+            let mut claude_entries: Vec<_> = if sessions_dir.exists() {
+                std::fs::read_dir(&sessions_dir)
+                    .context("reading Claude sessions directory")?
+                    .filter_map(|e| e.ok())
+                    .map(|e| e.path())
+                    .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("jsonl"))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            claude_entries.sort();
+
+            let pi_entries: Vec<_> = if let Some(ref pi_dir) = cfg.pi_jsonl_dir {
+                parser::list_pi_session_files(pi_dir, &project_dir)?
+            } else {
+                Vec::new()
+            };
+
+            if claude_entries.is_empty() && pi_entries.is_empty() {
+                anyhow::bail!(
+                    "no session files found for {:?} (checked Claude: {:?}, pi: {:?})",
+                    project_dir,
+                    sessions_dir,
+                    cfg.pi_jsonl_dir
+                );
             }
-
-            let mut entries: Vec<_> = std::fs::read_dir(&sessions_dir)
-                .context("reading sessions directory")?
-                .filter_map(|e| e.ok())
-                .map(|e| e.path())
-                .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("jsonl"))
-                .collect();
-
-            entries.sort();
 
             let dbs: Vec<(PathBuf, db::Db)> = cfg
                 .effective_db_paths()
@@ -124,7 +163,7 @@ async fn main() -> Result<()> {
                 .collect::<Result<_>>()?;
             let mut count = 0;
 
-            for path in &entries {
+            for path in &claude_entries {
                 let mut imported_to_any = false;
                 for (db_path, db) in &dbs {
                     match parser::import_session(db, path) {
@@ -138,9 +177,24 @@ async fn main() -> Result<()> {
                         }
                     }
                 }
-                if imported_to_any {
-                    count += 1;
+                if imported_to_any { count += 1; }
+            }
+
+            for path in &pi_entries {
+                let mut imported_to_any = false;
+                for (db_path, db) in &dbs {
+                    match parser::import_pi_session(db, path) {
+                        Ok(true) => {
+                            println!("Imported pi session to {}: {}", db_path.display(), path.display());
+                            imported_to_any = true;
+                        }
+                        Ok(false) => {}
+                        Err(e) => {
+                            eprintln!("Error importing pi session {} to {}: {}", path.display(), db_path.display(), e);
+                        }
+                    }
                 }
+                if imported_to_any { count += 1; }
             }
 
             println!("Done. Imported {} new session(s).", count);
