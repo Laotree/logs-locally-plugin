@@ -1,3 +1,4 @@
+mod chart;
 mod config;
 mod db;
 mod parser;
@@ -44,6 +45,12 @@ enum Commands {
     /// Score (or re-score) all sessions in the database that don't yet have a score.
     /// Useful after upgrading from a version that didn't include session scoring.
     Rescore,
+    /// Push daily aggregated activity (session + token counts) to a remote llp server.
+    /// Only aggregates are sent — no raw session content, titles, or messages.
+    Push {
+        /// URL of the remote server, e.g. https://your-app.fly.dev
+        url: String,
+    },
 }
 
 #[tokio::main]
@@ -114,7 +121,19 @@ async fn main() -> Result<()> {
                 .await
                 .context(format!("binding to {}", addr))?;
 
-            let app = server::router(db);
+            // Push token: env var takes precedence over config
+            let push_token = std::env::var("LLP_PUSH_TOKEN")
+                .ok()
+                .or_else(|| cfg.push_token.clone())
+                .unwrap_or_default();
+
+            // Data persistence directory for activity.json
+            let data_path = std::env::var("LLP_DATA_DIR")
+                .ok()
+                .or_else(|| cfg.data_dir.clone())
+                .map(|d| std::path::PathBuf::from(d).join("activity.json"));
+
+            let app = server::router(db, server::RouterConfig { push_token, data_path });
 
             println!("Logs Locally Plugin web server running at http://{}", addr);
             println!("Open your browser and start browsing Claude Code session logs!");
@@ -198,6 +217,44 @@ async fn main() -> Result<()> {
             }
 
             println!("Done. Imported {} new session(s).", count);
+        }
+
+        Commands::Push { url } => {
+            let token = std::env::var("LLP_PUSH_TOKEN")
+                .ok()
+                .or_else(|| cfg.push_token.clone())
+                .unwrap_or_default();
+            if token.is_empty() {
+                anyhow::bail!(
+                    "pushToken not configured. Set `pushToken` in config.json \
+                     or export LLP_PUSH_TOKEN=<secret>"
+                );
+            }
+
+            let db = db::Db::open(cfg.primary_db_path())?;
+            // Fetch only aggregated daily counts — no raw content
+            let records = db.get_daily_activity(None)?;
+            let days: Vec<chart::DayRecord> = records
+                .iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                .collect();
+            let count = days.len();
+
+            let client = reqwest::Client::new();
+            let target = format!("{}/api/push", url.trim_end_matches('/'));
+            let resp = client
+                .post(&target)
+                .bearer_auth(&token)
+                .json(&serde_json::json!({ "days": days }))
+                .send()
+                .await
+                .context("sending push request")?;
+
+            if resp.status().is_success() {
+                println!("Pushed {count} day(s) of aggregated activity to {url}");
+            } else {
+                anyhow::bail!("push failed: HTTP {}", resp.status());
+            }
         }
 
         Commands::Rescore => {

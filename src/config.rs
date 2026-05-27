@@ -37,6 +37,16 @@ pub struct Config {
     /// Port for the web server
     #[serde(default = "default_port")]
     pub port: u16,
+
+    /// Secret token for `POST /api/push`.
+    /// On the server side, overridden by the `LLP_PUSH_TOKEN` env var.
+    #[serde(rename = "pushToken")]
+    pub push_token: Option<String>,
+
+    /// Directory for persisting pushed activity data (activity.json).
+    /// On Fly.io set via `LLP_DATA_DIR` env var to the mounted volume path.
+    #[serde(rename = "dataDir")]
+    pub data_dir: Option<String>,
 }
 
 fn default_db_path() -> PathBuf {
@@ -100,6 +110,8 @@ impl Config {
             pi_jsonl_dir: None,
             host: default_host(),
             port: default_port(),
+            push_token: None,
+            data_dir: None,
         };
         c.db_path = expand_tilde(&c.db_path.to_string_lossy());
         c.claude_projects_dir = expand_tilde(&c.claude_projects_dir.to_string_lossy());

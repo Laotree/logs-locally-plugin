@@ -1,17 +1,24 @@
+use crate::chart::{ActivityData, DayRecord};
 use crate::db::Db;
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse, Json},
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use serde::Deserialize;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Db>,
+    /// Aggregated activity data received via POST /api/push.
+    pub activity: Arc<RwLock<ActivityData>>,
+    /// Token required in `Authorization: Bearer <token>` for /api/push.
+    pub push_token: String,
+    /// Optional path to persist activity.json across restarts.
+    pub data_path: Option<std::path::PathBuf>,
 }
 
 #[derive(Deserialize)]
@@ -24,9 +31,23 @@ pub struct SessionQuery {
     offset: Option<i64>,
 }
 
-pub fn router(db: Db) -> Router {
+pub struct RouterConfig {
+    pub push_token: String,
+    pub data_path: Option<std::path::PathBuf>,
+}
+
+pub fn router(db: Db, cfg: RouterConfig) -> Router {
+    // Load persisted activity data from disk if available
+    let initial_activity = cfg.data_path.as_ref()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|s| serde_json::from_str::<ActivityData>(&s).ok())
+        .unwrap_or_default();
+
     let state = AppState {
         db: Arc::new(db),
+        activity: Arc::new(RwLock::new(initial_activity)),
+        push_token: cfg.push_token,
+        data_path: cfg.data_path,
     };
 
     Router::new()
@@ -38,6 +59,8 @@ pub fn router(db: Db) -> Router {
         .route("/api/stats", get(get_stats))
         .route("/api/score-stats", get(get_score_stats))
         .route("/api/activity", get(get_activity))
+        .route("/api/push", post(handle_push))
+        .route("/chart.svg", get(get_chart_svg))
         .with_state(state)
 }
 
@@ -209,4 +232,61 @@ async fn get_activity(
         )
             .into_response(),
     }
+}
+
+/// Receive aggregated daily stats from `llp push`.
+/// Only accepts: day, session_count, token_count — no raw session content.
+async fn handle_push(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    // Token validation (skip if push_token is empty)
+    if !state.push_token.is_empty() {
+        let provided = headers
+            .get("Authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .unwrap_or("");
+        if provided != state.push_token {
+            return (StatusCode::UNAUTHORIZED,
+                    Json(serde_json::json!({"error": "unauthorized"}))).into_response();
+        }
+    }
+
+    let days: Vec<DayRecord> = payload["days"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|v| serde_json::from_value(v.clone()).ok())
+        .collect();
+
+    let count = days.len();
+    let updated_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let new_data = ActivityData { days, updated_at };
+
+    // Persist to disk if data_path is configured
+    if let Some(ref path) = state.data_path {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(path, serde_json::to_string(&new_data).unwrap_or_default());
+    }
+
+    *state.activity.write().unwrap() = new_data;
+
+    Json(serde_json::json!({"ok": true, "days": count})).into_response()
+}
+
+/// Return a dark SVG with two contribution-style heatmaps (sessions + tokens).
+/// Safe to embed in a public GitHub profile README.
+async fn get_chart_svg(State(state): State<AppState>) -> impl IntoResponse {
+    let data = state.activity.read().unwrap().clone();
+    let svg = crate::chart::render_svg(&data);
+    (
+        [(axum::http::header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
+         (axum::http::header::CACHE_CONTROL, "no-cache, max-age=0")],
+        svg,
+    )
+        .into_response()
 }
