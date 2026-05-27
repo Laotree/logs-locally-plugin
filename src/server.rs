@@ -17,6 +17,7 @@ pub struct AppState {
 #[derive(Deserialize)]
 pub struct SessionQuery {
     model: Option<String>,
+    source: Option<String>,
     since: Option<String>,
     q: Option<String>,
     limit: Option<i64>,
@@ -51,6 +52,7 @@ async fn list_sessions(
 
     let sessions = match state.db.list_sessions(
         query.model.as_deref(),
+        query.source.as_deref(),
         query.since.as_deref(),
         query.q.as_deref(),
         limit,

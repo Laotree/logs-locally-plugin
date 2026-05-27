@@ -26,6 +26,7 @@ pub fn parse_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
         cwd: None,
         git_branch: None,
         version: None,
+        source: "claude".to_string(),
     };
 
     let mut messages: Vec<Message> = Vec::new();
@@ -298,6 +299,7 @@ pub fn parse_pi_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
         cwd: None,
         git_branch: None,
         version: None,
+        source: "pi".to_string(),
     };
 
     let mut messages: Vec<Message> = Vec::new();

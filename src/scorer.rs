@@ -270,6 +270,7 @@ mod tests {
             cwd: None,
             git_branch: None,
             version: None,
+            source: "claude".into(),
         }
     }
 
