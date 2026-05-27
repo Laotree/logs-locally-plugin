@@ -1,6 +1,7 @@
 mod config;
 mod db;
 mod parser;
+mod scorer;
 mod scrub;
 mod server;
 

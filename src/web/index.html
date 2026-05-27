@@ -460,6 +460,109 @@
     color: var(--accent);
   }
 
+  /* Score badge in session list */
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .score-badge.grade-S { background: rgba(245,166,35,0.15); color: #f5a623; }
+  .score-badge.grade-A { background: rgba(76,175,80,0.15);  color: #66bb6a; }
+  .score-badge.grade-B { background: rgba(33,150,243,0.15); color: #42a5f5; }
+  .score-badge.grade-C { background: rgba(255,152,0,0.15);  color: #ffa726; }
+  .score-badge.grade-D { background: rgba(255,87,34,0.15);  color: #ff7043; }
+  .score-badge.grade-F { background: rgba(244,67,54,0.15);  color: #ef5350; }
+
+  /* Score breakdown card in detail view */
+  .score-card {
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+  }
+
+  .score-card .score-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .score-card .score-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .score-card .score-total {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .score-card .score-total .number {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .score-card .score-total .max {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .score-card .grade-pill {
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .score-dims {
+    display: grid;
+    gap: 8px;
+  }
+
+  .score-dim {
+    display: grid;
+    grid-template-columns: 130px 1fr 32px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .score-dim .dim-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .score-dim .dim-bar-track {
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .score-dim .dim-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .score-dim .dim-val {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -638,11 +741,16 @@ function renderSessionList() {
     container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dim);font-size:13px;">No sessions found</div>';
     return;
   }
-  container.innerHTML = allSessions.map(s => `
+  container.innerHTML = allSessions.map(s => {
+    const scoreBadge = s.score
+      ? `<span class="score-badge grade-${s.score.grade}">${s.score.grade} ${s.score.total}</span>`
+      : '';
+    return `
     <div class="session-item ${s.id === selectedId ? 'active' : ''}"
          onclick="selectSession('${s.id}')">
       <div class="title">
         <span class="name">${escHtml(s.title || s.id.slice(0, 12))}</span>
+        ${scoreBadge}
       </div>
       <div class="meta">
         ${s.model ? `<span class="model-tag">${escHtml(s.model)}</span><span class="dot"></span>` : ''}
@@ -652,7 +760,8 @@ function renderSessionList() {
         <span>${ago(s.updated_at)}</span>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function selectSession(id) {
@@ -684,6 +793,51 @@ function showSidebar() {
   document.getElementById('sidebar').classList.remove('hidden');
 }
 
+function gradeColor(grade) {
+  return { S: '#f5a623', A: '#66bb6a', B: '#42a5f5', C: '#ffa726', D: '#ff7043', F: '#ef5350' }[grade] || '#888';
+}
+
+function renderScoreCard(score) {
+  if (!score) return '';
+  const dims = [
+    { key: 'security',         label: 'Security',         max: 15 },
+    { key: 'effectivity',      label: 'Effectivity',      max: 15 },
+    { key: 'solidity',         label: 'Solidity',         max: 10 },
+    { key: 'efficiency',       label: 'Efficiency',       max: 15 },
+    { key: 'planning_quality', label: 'Planning Quality', max: 15 },
+    { key: 'recovery_ability', label: 'Recovery Ability', max: 15 },
+    { key: 'hallucination_rate', label: 'Hallucination Rate', max: 15 },
+  ];
+  const color = gradeColor(score.grade);
+  const dimRows = dims.map(d => {
+    const val = score[d.key] ?? 0;
+    const pct = Math.round((val / d.max) * 100);
+    return `
+      <div class="score-dim">
+        <span class="dim-label">${d.label}</span>
+        <div class="dim-bar-track">
+          <div class="dim-bar-fill" style="width:${pct}%;background:${color};opacity:0.7;"></div>
+        </div>
+        <span class="dim-val">${val}/${d.max}</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="score-card">
+      <div class="score-header">
+        <span class="score-title">Session Score</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="score-total">
+            <span class="number" style="color:${color}">${score.total_score}</span>
+            <span class="max">/100</span>
+          </div>
+          <span class="grade-pill" style="background:${color}22;color:${color}">${score.grade}</span>
+        </div>
+      </div>
+      <div class="score-dims">${dimRows}</div>
+    </div>`;
+}
+
 function renderSessionDetail(session, messages) {
   document.getElementById('sessionTitle').textContent = session.title || session.id.slice(0, 16);
 
@@ -694,8 +848,9 @@ function renderSessionDetail(session, messages) {
   document.getElementById('sessionMeta').innerHTML = metaParts.join(' &middot; ');
 
   const container = document.getElementById('messagesContainer');
-  container.innerHTML = messages.map(m => renderMessage(m)).join('');
-  container.scrollTop = container.scrollHeight;
+  const scoreHtml = renderScoreCard(session.score);
+  container.innerHTML = scoreHtml + messages.map(m => renderMessage(m)).join('');
+  container.scrollTop = 0;
 }
 
 function renderMessage(msg) {
