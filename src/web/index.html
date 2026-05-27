@@ -979,7 +979,7 @@ function renderSessionList() {
   container.innerHTML = allSessions.map(s => {
     const scoreBadge = s.score
       ? `<span class="score-badge grade-${s.score.grade}">${s.score.grade} ${s.score.total}</span>`
-      : `<span class="score-badge grade-NA">N/A</span>`;
+      : `<span class="score-badge grade-NA" title="Not scored — session too short (requires ≥2 substantial messages from each side)">N/A</span>`;
     const src = s.source || 'claude';
     const sourceBadge = `<span class="source-badge source-${src}">${src}</span>`;
     return `
