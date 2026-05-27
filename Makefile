@@ -1,4 +1,4 @@
-.PHONY: build release install hooks test serve import fmt lint clean
+.PHONY: build release install hooks test serve import rescore fmt lint clean
 
 build:
 	cargo build
@@ -21,6 +21,9 @@ serve:
 
 import:
 	cargo run -- import
+
+rescore:
+	cargo run -- rescore
 
 fmt:
 	cargo fmt

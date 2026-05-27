@@ -39,30 +39,26 @@ brew install Laotree/tap/llp
 
 ### Updating
 
-When the plugin gets a new release, update the formula:
+This repository uses automated publishing via GitHub Actions. When a `v*` tag is pushed to `logs-locally-plugin`, the [publish-homebrew-tap](../.github/workflows/publish-homebrew-tap.yml) workflow sends a `repository_dispatch` event to `Laotree/homebrew-tap`, which updates the formula automatically.
 
-1. Replace the `revision` value in `llp.rb` with the new commit SHA (or use `url` pointing to a release archive).
-2. Update `version` if the version changed.
+#### Manual formula update
+
+If the automated publish didn't fire (e.g. missing token), update the formula manually:
+
+1. Replace the `revision` value in `llp.rb` with the new commit SHA.
+2. Update `version` and `tag` if the version changed.
 3. Commit and push to the `homebrew-tap` repo.
 
-### Optional: Stable release
-
-For a stable release (no `--head` flag needed), tag the `logs-locally-plugin` repo:
+### Release workflow
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.5.0
+git push origin v0.5.0       # triggers GitHub Actions → homebrew-tap dispatch
 ```
 
-Then update the formula's `url`:
+### Optional: Archive URL (stable release)
 
 ```ruby
-url "https://github.com/Laotree/logs-locally-plugin.git", tag: "v0.1.0"
-```
-
-And you can optionally switch to an archive URL:
-
-```ruby
-url "https://github.com/Laotree/logs-locally-plugin/archive/refs/tags/v0.1.0.tar.gz"
+url "https://github.com/Laotree/logs-locally-plugin/archive/refs/tags/v0.5.0.tar.gz"
 sha256 "..."  # run `brew fetch --force-bottle-url <url>` to get the SHA
 ```

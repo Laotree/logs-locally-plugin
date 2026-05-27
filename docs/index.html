@@ -113,9 +113,9 @@
 </nav>
 
 <div class="hero">
-  <div class="badge">Claude Code Plugin</div>
+  <div class="badge">Claude Code + Pi Agent</div>
   <h1>Never lose a <span>Claude session</span> again</h1>
-  <p>Automatically save every Claude Code conversation to a local database. Browse, search, and replay your sessions through a beautiful web UI.</p>
+  <p>Automatically save every Claude Code and Pi agent conversation to a local database. Browse, search, score, and replay your sessions through a beautiful web UI.</p>
   <div class="actions">
     <a class="primary" href="#install">Get Started</a>
     <a class="secondary" href="https://github.com/Laotree/logs-locally-plugin">View on GitHub</a>
@@ -128,13 +128,19 @@ $ llp serve
 <span class="cmd">Logs Locally Plugin web server running at http://127.0.0.1:8484
 Open your browser and start browsing Claude Code session logs!</span>
 
-<span class="comment"># Or import a specific session:</span>
+<span class="comment"># Auto-imports Claude &amp; Pi sessions on exit:</span>
 $ llp import
-<span class="cmd">Imported: 960a0652-c62c-4ece-b42e-c047ddfbbe7e.jsonl</span>
+<span class="cmd">Imported: 960a0652-c62c-4ece-b42e-c047ddfbbe7e.jsonl
+Imported pi session: 20250527_183324.jsonl</span>
 
 <span class="comment"># Bulk import all history for a project:</span>
 $ llp import-all ~/my-project
-<span class="cmd">Done. Imported 151 new session(s).</span></pre>
+<span class="cmd">Done. Imported 151 new session(s).</span>
+
+<span class="comment"># Re-score after version upgrade:</span>
+$ llp rescore
+<span class="cmd">Rescoring 84 session(s)...
+Done. Scored: 72, Trivial (N/A): 12.</span></pre>
   </div>
 </div>
 
@@ -145,17 +151,22 @@ $ llp import-all ~/my-project
     <div class="feature">
       <div class="icon">&#9889;</div>
       <h3>Zero-effort capture</h3>
-      <p>Just install the plugin and the <code>Stop</code> hook saves each session on exit. No manual exporting.</p>
+      <p>Just install and the <code>Stop</code> hook saves each session on exit. Supports both Claude Code and Pi agent sessions.</p>
     </div>
     <div class="feature">
       <div class="icon">&#128269;</div>
       <h3>Full-text search</h3>
-      <p>Search across all your sessions by keyword, filter by model, or narrow by time range.</p>
+      <p>Search across all your sessions by keyword, filter by model, source (Claude/Pi), or narrow by time range.</p>
     </div>
     <div class="feature">
       <div class="icon">&#128200;</div>
       <h3>Token &amp; usage stats</h3>
-      <p>Track token consumption per session and per model. See which models you use most.</p>
+      <p>Track token consumption per session and per model. See which models you use most — and which score best.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#127919;</div>
+      <h3>Session scoring</h3>
+      <p>Every session is auto-scored on 7 quality dimensions (security, effectivity, planning, etc.) with letter grades S/A/B/C/D/F.</p>
     </div>
     <div class="feature">
       <div class="icon">&#128065;</div>
@@ -170,7 +181,7 @@ $ llp import-all ~/my-project
     <div class="feature">
       <div class="icon">&#128187;</div>
       <h3>Local &amp; private</h3>
-      <p>Everything stays on your machine. SQLite database, no telemetry, no cloud dependency.</p>
+      <p>Everything stays on your machine. Sensitive data (API keys, tokens, credentials) is scrubbed before storage.</p>
     </div>
   </div>
 </section>
@@ -265,17 +276,22 @@ $ llp import-all ~/my-project
     <div class="feature">
       <div class="icon">&#8682;</div>
       <h3><code>llp import</code></h3>
-      <p>Import the latest Claude Code session for the current project. Idempotent — safe to run on every exit.</p>
+      <p>Import the latest Claude Code and Pi session for the current project. Idempotent — safe to run on every exit.</p>
     </div>
     <div class="feature">
       <div class="icon">&#127760;</div>
       <h3><code>llp serve</code></h3>
-      <p>Start the web log browser. Default: <code>http://127.0.0.1:8484</code>.</p>
+      <p>Start the web log browser with scoring, stats, and source filters. Default: <code>http://127.0.0.1:8484</code>.</p>
     </div>
     <div class="feature">
       <div class="icon">&#128194;</div>
       <h3><code>llp import-all</code></h3>
-      <p>Bulk import all past sessions for a project. Useful for the initial setup.</p>
+      <p>Bulk import all past sessions (Claude + Pi) for a project. Useful for initial setup.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128260;</div>
+      <h3><code>llp rescore</code></h3>
+      <p>Re-evaluate session quality scores after upgrading. Trivial sessions are marked N/A.</p>
     </div>
   </div>
 </section>
