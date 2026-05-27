@@ -567,4 +567,34 @@ impl Db {
             "unscored_count": unscored,
         }))
     }
+
+    /// Returns daily activity: session count and token sum per day,
+    /// optionally filtered to sessions updated on or after `since` (ISO 8601).
+    pub fn get_daily_activity(&self, since: Option<&str>) -> Result<Vec<serde_json::Value>> {
+        let conn = self.conn.lock().unwrap();
+        let where_clause = if since.is_some() { "WHERE updated_at >= ?1" } else { "" };
+        let sql = format!(
+            "SELECT DATE(updated_at) as day,
+                    COUNT(*) as session_count,
+                    COALESCE(SUM(token_count), 0) as token_count
+             FROM sessions {where_clause}
+             GROUP BY day ORDER BY day ASC"
+        );
+        let pv: Vec<Box<dyn rusqlite::types::ToSql>> = since
+            .iter()
+            .map(|s| Box::new(s.to_string()) as Box<dyn rusqlite::types::ToSql>)
+            .collect();
+        let pr: Vec<&dyn rusqlite::types::ToSql> = pv.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = conn.prepare(&sql).context("preparing daily activity query")?;
+        let rows = stmt.query_map(pr.as_slice(), |row| {
+            Ok(serde_json::json!({
+                "day":           row.get::<_, String>(0)?,
+                "session_count": row.get::<_, i64>(1)?,
+                "token_count":   row.get::<_, i64>(2)?,
+            }))
+        }).context("querying daily activity")?
+          .collect::<Result<Vec<_>, _>>()
+          .context("collecting daily activity")?;
+        Ok(rows)
+    }
 }
