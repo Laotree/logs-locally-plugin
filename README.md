@@ -192,7 +192,62 @@ Commands:
 Options:
   -c, --config <FILE>  Path to config file [default: config.json]
   -h, --help           Print help
+  push         Push daily aggregated activity to a remote llp server
 ```
+
+## GitHub Profile Chart (Fly.io)
+
+Embed a live token/session heatmap in your GitHub profile README — two contribution-style grids, no raw session content ever leaves your machine.
+
+### 1. Deploy to Fly.io
+
+```bash
+fly auth login
+fly apps create llp-chart          # or any name you prefer
+fly volumes create llp_data --size 1 --region nrt
+fly secrets set LLP_PUSH_TOKEN=$(openssl rand -hex 32)
+fly deploy
+```
+
+Your chart is now live at `https://llp-chart.fly.dev/chart.svg`.
+
+### 2. Configure locally
+
+Add to `config.json`:
+
+```json
+{
+  "pushToken": "<same secret you set above>"
+}
+```
+
+### 3. Push activity data
+
+```bash
+llp push https://llp-chart.fly.dev
+```
+
+Sends only daily aggregates (`day`, `session_count`, `token_count`) — no titles, messages, or any session content.
+
+Optionally add to your `Stop` hook to push automatically on every session end:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "llp import && llp push https://llp-chart.fly.dev" }] }
+    ]
+  }
+}
+```
+
+### 4. Add to your GitHub profile README
+
+```markdown
+![Activity](https://llp-chart.fly.dev/chart.svg)
+```
+
+---
 
 ## Build
 
