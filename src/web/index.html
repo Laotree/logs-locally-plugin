@@ -954,6 +954,10 @@ function renderMessage(msg) {
 // Render a single system XML tag. Called after placeholder restoration.
 function renderSysTagHtml(tag, inner) {
   if (!inner) return ''; // hide empty tags
+  // Merged slash-command chip
+  if (tag === 'command') return `<span class="sys-tag" title="slash command">⌘ ${escHtml(inner)}</span>`;
+  // command-message duplicates command-name — always hide
+  if (tag === 'command-message') return '';
 
   // Short single-line: inline chip showing content, tag name on hover
   if (inner.length <= 120 && !inner.includes('\n')) {
@@ -972,6 +976,17 @@ function formatContent(content) {
   // Extract system XML tags (hyphenated, e.g. <command-name>, <local-command-caveat>)
   // before HTML escaping so we control their rendering.
   const sysTags = [];
+  // Pre-pass: merge <command-name> + <command-message> + <command-args> into one chip
+  content = content.replace(
+    /<command-name>([\s\S]*?)<\/command-name>\s*<command-message>[\s\S]*?<\/command-message>\s*<command-args>([\s\S]*?)<\/command-args>/g,
+    (_, cmd, args) => {
+      const idx = sysTags.length;
+      const display = args.trim() ? cmd.trim() + ' ' + args.trim() : cmd.trim();
+      sysTags.push({ tag: 'command', inner: display });
+      return '\x02SYSTAG' + idx + '\x03';
+    }
+  );
+  // Generic extraction of remaining hyphenated XML tags
   content = content.replace(/<([a-z][a-z0-9]*(?:-[a-z0-9]+)+)>([\s\S]*?)<\/\1>/g, (_, tag, inner) => {
     const idx = sysTags.length;
     sysTags.push({ tag, inner: inner.trim() });
