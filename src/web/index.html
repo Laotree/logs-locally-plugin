@@ -1086,14 +1086,15 @@ function renderSessionDetail(session, messages) {
 
   const container = document.getElementById('messagesContainer');
   const scoreHtml = renderScoreCard(session.score);
-  container.innerHTML = scoreHtml + messages.map(m => renderMessage(m)).join('');
+  container.innerHTML = scoreHtml + messages.map(m => renderMessage(m, session.source)).join('');
   container.scrollTop = 0;
 }
 
-function renderMessage(msg) {
+function renderMessage(msg, source) {
   const role = msg.role === 'user' ? 'user' : 'assistant';
-  const avatar = role === 'user' ? '&#x1f464;' : 'C';
-  const name = role === 'user' ? 'You' : 'Claude';
+  const isPi = source === 'pi';
+  const avatar = role === 'user' ? '&#x1f464;' : (isPi ? 'P' : 'C');
+  const name = role === 'user' ? 'You' : (isPi ? 'Pi' : 'Claude');
 
   let time = '';
   if (msg.created_at) {
