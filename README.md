@@ -31,13 +31,20 @@ The `serve` command starts a web UI at `http://127.0.0.1:8484` for browsing and 
 
 ## Installation
 
-### Option 1: Install from source
+### Option 1: Homebrew (recommended)
+
+```bash
+brew tap Laotree/tap
+brew install llp
+```
+
+### Option 2: Install from source
 
 ```bash
 cargo install --git https://github.com/Laotree/logs-locally-plugin
 ```
 
-### Option 2: Build locally
+### Option 3: Build locally
 
 ```bash
 cargo build --release
@@ -46,7 +53,7 @@ cp target/release/llp ~/.local/bin/llp
 
 > Make sure `~/.local/bin` is in your `PATH`.
 
-### Option 3: Install as a Claude Code plugin (marketplace)
+### Option 4: Install as a Claude Code plugin (marketplace)
 
 Once published to the community marketplace:
 
