@@ -326,8 +326,75 @@
     font-size: 14px;
     line-height: 1.65;
     color: var(--text);
-    white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  /* Markdown rendered elements */
+  .message .body .content h1,
+  .message .body .content h2,
+  .message .body .content h3,
+  .message .body .content h4 {
+    font-weight: 600;
+    margin: 14px 0 6px;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .message .body .content h1 { font-size: 18px; }
+  .message .body .content h2 { font-size: 16px; }
+  .message .body .content h3 { font-size: 14px; }
+  .message .body .content h4 { font-size: 13px; }
+
+  .message .body .content ul,
+  .message .body .content ol {
+    margin: 6px 0 6px 22px;
+  }
+  .message .body .content li { margin-bottom: 3px; }
+  .message .body .content li > p { margin-bottom: 0; }
+
+  .message .body .content table {
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 13px;
+    display: block;
+    overflow-x: auto;
+  }
+  .message .body .content th,
+  .message .body .content td {
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .message .body .content th {
+    background: rgba(255,255,255,0.03);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .message .body .content tr:nth-child(even) td {
+    background: rgba(255,255,255,0.01);
+  }
+
+  .message .body .content strong { font-weight: 600; }
+  .message .body .content em { font-style: italic; color: var(--text-muted); }
+  .message .body .content del { text-decoration: line-through; opacity: 0.6; }
+
+  .message .body .content a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .message .body .content a:hover { text-decoration: underline; }
+
+  .message .body .content blockquote {
+    border-left: 3px solid var(--border);
+    margin: 8px 0;
+    padding: 4px 14px;
+    color: var(--text-muted);
+  }
+  .message .body .content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 12px 0;
   }
 
   .message .body .content p { margin-bottom: 8px; }
@@ -741,6 +808,7 @@
     .main-header .back-btn { display: block; }
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -1071,80 +1139,68 @@ function renderSysTagHtml(tag, inner) {
   return `<details class="sys-tag-block"><summary class="sys-tag-summary"><span class="sys-tag-name">&lt;${escHtml(tag)}&gt;</span><span class="sys-tag-preview">${preview}</span></summary><div class="sys-tag-content">${escHtml(inner)}</div></details>`;
 }
 
+// Render a custom block (thinking / tool_result / tool call) from raw (unescaped) content.
+function renderCustomBlock(block) {
+  let m = block.match(/^\[thinking\]([\s\S]*?)\[\/thinking\]$/);
+  if (m) {
+    return `<details class="thinking-block"><summary>Claude's thinking</summary><div>${escHtml(m[1].trim())}</div></details>`;
+  }
+  m = block.match(/^\[tool_result\]([\s\S]*?)\[\/tool_result\]$/);
+  if (m) {
+    const LIMIT = 200;
+    const body = m[1].trim();
+    const escapedBody = escHtml(body);
+    if (body.length <= LIMIT) {
+      return `<div class="tool-result-block tool-result-short"><div class="tool-result-header"><span class="tool-result-label">&#x2b1c; tool_result</span></div><div class="tool-result-body">${escapedBody}</div></div>`;
+    }
+    const firstLine = body.split('\n')[0].trim();
+    const preview = escHtml(firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : firstLine + (body.length > firstLine.length ? '…' : ''));
+    return `<details class="tool-result-block"><summary class="tool-result-summary"><span class="tool-result-label">&#x2b1c; tool_result</span><span class="tool-result-preview">${preview}</span></summary><div class="tool-result-body">${escapedBody}</div></details>`;
+  }
+  m = block.match(/^\[tool: ([^\]]*)\]([\s\S]*?)\[\/tool\]$/);
+  if (m) {
+    return `<div class="tool-block"><div class="tool-name">&#x1f6e0;&#xfe0f; ${escHtml(m[1].trim())}</div><div class="tool-input">${escHtml(m[2].trim())}</div></div>`;
+  }
+  return escHtml(block);
+}
+
 function formatContent(content) {
   if (!content) return '<em style="color:var(--text-dim)">empty</em>';
 
-  // Extract system XML tags (hyphenated, e.g. <command-name>, <local-command-caveat>)
-  // before HTML escaping so we control their rendering.
+  // Step 1: Extract system XML tags into plain-text placeholders before markdown processing.
   const sysTags = [];
-  // Pre-pass: merge <command-name> + <command-message> + <command-args> into one chip
   content = content.replace(
     /<command-name>([\s\S]*?)<\/command-name>\s*<command-message>[\s\S]*?<\/command-message>\s*<command-args>([\s\S]*?)<\/command-args>/g,
     (_, cmd, args) => {
       const idx = sysTags.length;
       const display = args.trim() ? cmd.trim() + ' ' + args.trim() : cmd.trim();
       sysTags.push({ tag: 'command', inner: display });
-      return '\x02SYSTAG' + idx + '\x03';
+      return `LLPSYS${idx}LLP`;
     }
   );
-  // Generic extraction of remaining hyphenated XML tags
   content = content.replace(/<([a-z][a-z0-9]*(?:-[a-z0-9]+)+)>([\s\S]*?)<\/\1>/g, (_, tag, inner) => {
     const idx = sysTags.length;
     sysTags.push({ tag, inner: inner.trim() });
-    return `SYSTAG${idx}`;
+    return `LLPSYS${idx}LLP`;
   });
 
-  let html = escHtml(content);
+  // Step 2: Split on block-level custom markers (odd indices = matched blocks).
+  const BLOCK_RE = /(\[thinking\][\s\S]*?\[\/thinking\]|\[tool_result\][\s\S]*?\[\/tool_result\]|\[tool:[^\]]*\][\s\S]*?\[\/tool\])/g;
+  const segments = content.split(BLOCK_RE);
 
-  // Thinking blocks (collapsible)
-  // Note: text is captured from html which is already escHtml'd — no second escaping
-  html = html.replace(
-    /\[thinking\]([\s\S]*?)\[\/thinking\]/g,
-    (_, text) => `<details class="thinking-block"><summary>Claude's thinking</summary><div>${text.trim()}</div></details>`
-  );
-
-  // Tool result blocks
-  html = html.replace(/\[tool_result\]([\s\S]*?)\[\/tool_result\]/g, (_, body) => {
-    const LIMIT = 200;
-    body = body.trim();
-    if (body.length <= LIMIT) {
-      return `<div class="tool-result-block tool-result-short"><div class="tool-result-header"><span class="tool-result-label">&#x2b1c; tool_result</span></div><div class="tool-result-body">${body}</div></div>`;
-    }
-    const firstLine = body.split('\n')[0].trim();
-    const preview = firstLine.length > 80 ? firstLine.slice(0, 80) + '…' : (firstLine + (body.length > firstLine.length ? '…' : ''));
-    return `<details class="tool-result-block"><summary class="tool-result-summary"><span class="tool-result-label">&#x2b1c; tool_result</span><span class="tool-result-preview">${preview}</span></summary><div class="tool-result-body">${body}</div></details>`;
-  });
-
-  // Tool calls
-  html = html.replace(
-    /\[tool: ([^\]]*)\]([\s\S]*?)\[\/tool\]/g,
-    (_, name, input) => `<div class="tool-block"><div class="tool-name">&#x1f6e0;&#xfe0f; ${name.trim()}</div><div class="tool-input">${input.trim()}</div></div>`
-  );
-
-  // Code blocks
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    const langTag = lang ? `<span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">${lang}</span>` : '';
-    return `<pre>${langTag}<code>${code}</code></pre>`;
-  });
-
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  // Double newlines → paragraphs
-  html = html.replace(/\n\n/g, '</p><p>');
-  html = '<p>' + html + '</p>';
-  // Remove empty paragraphs
-  html = html.replace(/<p>\s*<\/p>/g, '');
-
-  // Restore system tag placeholders (after escaping so their HTML is not escaped)
-  if (sysTags.length > 0) {
-    html = html.replace(/SYSTAG(\d+)/g, (_, i) => {
-      const { tag, inner } = sysTags[+i];
+  // Step 3: Run text segments through marked.js; render custom blocks directly.
+  const htmlParts = segments.map((seg, i) => {
+    if (i % 2 === 1) return renderCustomBlock(seg);
+    if (!seg.trim()) return '';
+    let rendered = marked.parse(seg, { gfm: true });
+    rendered = rendered.replace(/LLPSYS(\d+)LLP/g, (_, idx) => {
+      const { tag, inner } = sysTags[+idx];
       return renderSysTagHtml(tag, inner);
     });
-  }
+    return rendered;
+  });
 
-  return html;
+  return htmlParts.join('');
 }
 
 function escHtml(str) {
