@@ -1,6 +1,6 @@
 {
   "name": "logs-locally-plugin",
-  "description": "Store and browse Claude Code session logs locally with a SQLite database and web UI",
+  "description": "Store and browse AI agent session logs locally with a SQLite database and web UI",
   "version": "1.0.0",
   "author": {
     "name": "raypar"

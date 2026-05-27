@@ -1,11 +1,11 @@
 ---
-description: Start the logs-locally web server to browse Claude Code session logs
+description: Start the logs-locally web server to browse AI agent session logs
 disable-model-invocation: true
 ---
 
 # Serve Log Viewer
 
-Run `llp serve` to start the local web UI for browsing Claude Code session logs.
+Run `llp serve` to start the local web UI for browsing AI agent session logs.
 
 The web UI will be available at `http://127.0.0.1:8484` by default.
 
