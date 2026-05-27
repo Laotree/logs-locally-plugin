@@ -558,12 +558,13 @@
     font-weight: 600;
     flex-shrink: 0;
   }
-  .score-badge.grade-S { background: rgba(245,166,35,0.15); color: #f5a623; }
-  .score-badge.grade-A { background: rgba(76,175,80,0.15);  color: #66bb6a; }
-  .score-badge.grade-B { background: rgba(33,150,243,0.15); color: #42a5f5; }
-  .score-badge.grade-C { background: rgba(255,152,0,0.15);  color: #ffa726; }
-  .score-badge.grade-D { background: rgba(255,87,34,0.15);  color: #ff7043; }
-  .score-badge.grade-F { background: rgba(244,67,54,0.15);  color: #ef5350; }
+  .score-badge.grade-S  { background: rgba(245,166,35,0.15); color: #f5a623; }
+  .score-badge.grade-A  { background: rgba(76,175,80,0.15);  color: #66bb6a; }
+  .score-badge.grade-B  { background: rgba(33,150,243,0.15); color: #42a5f5; }
+  .score-badge.grade-C  { background: rgba(255,152,0,0.15);  color: #ffa726; }
+  .score-badge.grade-D  { background: rgba(255,87,34,0.15);  color: #ff7043; }
+  .score-badge.grade-F  { background: rgba(244,67,54,0.15);  color: #ef5350; }
+  .score-badge.grade-NA { background: rgba(150,150,150,0.1); color: var(--text-dim); }
 
   /* Score breakdown card in detail view */
   .score-card {
@@ -978,7 +979,7 @@ function renderSessionList() {
   container.innerHTML = allSessions.map(s => {
     const scoreBadge = s.score
       ? `<span class="score-badge grade-${s.score.grade}">${s.score.grade} ${s.score.total}</span>`
-      : '';
+      : `<span class="score-badge grade-NA">N/A</span>`;
     const src = s.source || 'claude';
     const sourceBadge = `<span class="source-badge source-${src}">${src}</span>`;
     return `

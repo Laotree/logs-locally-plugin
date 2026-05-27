@@ -202,24 +202,32 @@ async fn main() -> Result<()> {
 
         Commands::Rescore => {
             let db = db::Db::open(cfg.primary_db_path())?;
-            let ids = db.get_unscored_session_ids()?;
+            let ids = db.get_all_session_ids()?;
 
             if ids.is_empty() {
-                println!("All sessions already scored.");
+                println!("No sessions found.");
                 return Ok(());
             }
 
-            println!("Scoring {} session(s)...", ids.len());
-            let mut count = 0;
+            println!("Rescoring {} session(s)...", ids.len());
+            let mut scored = 0;
+            let mut skipped = 0;
             for id in &ids {
                 if let Some(session) = db.get_session(id)? {
                     let messages = db.get_messages(id)?;
-                    let score = scorer::score_session(&session, &messages);
-                    db.upsert_score(&score)?;
-                    count += 1;
+                    match scorer::score_session(&session, &messages) {
+                        Some(score) => {
+                            db.upsert_score(&score)?;
+                            scored += 1;
+                        }
+                        None => {
+                            db.delete_score(id)?;
+                            skipped += 1;
+                        }
+                    }
                 }
             }
-            println!("Done. Scored {} session(s).", count);
+            println!("Done. Scored: {}, Trivial (N/A): {}.", scored, skipped);
         }
     }
 

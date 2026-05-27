@@ -456,6 +456,26 @@ impl Db {
         Ok(ids)
     }
 
+    pub fn get_all_session_ids(&self) -> Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id FROM sessions")
+            .context("preparing all sessions query")?;
+        let ids = stmt
+            .query_map([], |row| row.get(0))
+            .context("querying all sessions")?
+            .collect::<Result<Vec<String>, _>>()
+            .context("collecting all session ids")?;
+        Ok(ids)
+    }
+
+    pub fn delete_score(&self, session_id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM scores WHERE session_id = ?1", params![session_id])
+            .context("deleting score")?;
+        Ok(())
+    }
+
     pub fn get_stats(&self) -> Result<Stats> {
         let conn = self.conn.lock().unwrap();
 

@@ -210,8 +210,9 @@ pub fn import_session(db: &crate::db::Db, jsonl_path: &Path) -> Result<bool> {
     let (session, messages) = parse_session_file(jsonl_path)?;
     let imported = db.import_session(&session, &messages)?;
     if imported {
-        let score = crate::scorer::score_session(&session, &messages);
-        db.upsert_score(&score).context("storing session score")?;
+        if let Some(score) = crate::scorer::score_session(&session, &messages) {
+            db.upsert_score(&score).context("storing session score")?;
+        }
     }
     Ok(imported)
 }
@@ -430,8 +431,9 @@ pub fn import_pi_session(db: &crate::db::Db, jsonl_path: &Path) -> Result<bool> 
     let (session, messages) = parse_pi_session_file(jsonl_path)?;
     let imported = db.import_session(&session, &messages)?;
     if imported {
-        let score = crate::scorer::score_session(&session, &messages);
-        db.upsert_score(&score).context("storing pi session score")?;
+        if let Some(score) = crate::scorer::score_session(&session, &messages) {
+            db.upsert_score(&score).context("storing pi session score")?;
+        }
     }
     Ok(imported)
 }
