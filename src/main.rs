@@ -41,6 +41,9 @@ enum Commands {
         #[arg(default_value = ".")]
         project_dir: PathBuf,
     },
+    /// Score (or re-score) all sessions in the database that don't yet have a score.
+    /// Useful after upgrading from a version that didn't include session scoring.
+    Rescore,
 }
 
 #[tokio::main]
@@ -141,6 +144,28 @@ async fn main() -> Result<()> {
             }
 
             println!("Done. Imported {} new session(s).", count);
+        }
+
+        Commands::Rescore => {
+            let db = db::Db::open(cfg.primary_db_path())?;
+            let ids = db.get_unscored_session_ids()?;
+
+            if ids.is_empty() {
+                println!("All sessions already scored.");
+                return Ok(());
+            }
+
+            println!("Scoring {} session(s)...", ids.len());
+            let mut count = 0;
+            for id in &ids {
+                if let Some(session) = db.get_session(id)? {
+                    let messages = db.get_messages(id)?;
+                    let score = scorer::score_session(&session, &messages);
+                    db.upsert_score(&score)?;
+                    count += 1;
+                }
+            }
+            println!("Done. Scored {} session(s).", count);
         }
     }
 
