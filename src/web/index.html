@@ -996,21 +996,22 @@ function formatContent(content) {
   let html = escHtml(content);
 
   // Thinking blocks (collapsible)
+  // Note: text is captured from html which is already escHtml'd — no second escaping
   html = html.replace(
     /\[thinking\]([\s\S]*?)\[\/thinking\]/g,
-    (_, text) => `<details class="thinking-block"><summary>Claude's thinking</summary><div>${escHtml(text.trim())}</div></details>`
+    (_, text) => `<details class="thinking-block"><summary>Claude's thinking</summary><div>${text.trim()}</div></details>`
   );
 
   // Tool calls
   html = html.replace(
     /\[tool: ([^\]]*)\]([\s\S]*?)\[\/tool\]/g,
-    (_, name, input) => `<div class="tool-block"><div class="tool-name">&#x1f6e0;&#xfe0f; ${escHtml(name.trim())}</div><div class="tool-input">${escHtml(input.trim())}</div></div>`
+    (_, name, input) => `<div class="tool-block"><div class="tool-name">&#x1f6e0;&#xfe0f; ${name.trim()}</div><div class="tool-input">${input.trim()}</div></div>`
   );
 
   // Code blocks
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    const langTag = lang ? `<span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">${escHtml(lang)}</span>` : '';
-    return `<pre>${langTag}<code>${escHtml(code)}</code></pre>`;
+    const langTag = lang ? `<span style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:8px;">${lang}</span>` : '';
+    return `<pre>${langTag}<code>${code}</code></pre>`;
   });
 
   // Inline code
