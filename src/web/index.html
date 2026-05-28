@@ -654,6 +654,7 @@ async function loadSessions(filterUpdate) {
     const params = new URLSearchParams({ limit: '200' });
     if (svFilters.src && svFilters.src !== 'all') params.set('source', svFilters.src);
     if (svFilters.model && svFilters.model !== 'all') params.set('model', svFilters.model);
+    if (svFilters.grade && svFilters.grade !== 'all') params.set('grade', svFilters.grade);
     if (svFilters.q) params.set('q', svFilters.q);
     const res = await api('/api/sessions?' + params.toString());
     const raw = res.sessions || [];
@@ -924,7 +925,7 @@ function renderDashboardHtml(stats, agg, gd, scoredTotal, unscoredTotal, cells, 
   </div>`;
 }
 
-let svFilters = { q:'', src:'all', model:'all' };
+let svFilters = { q:'', src:'all', model:'all', grade:'all' };
 
 function renderSessionsHtml(sessions, scoresMap) {
   const filtered = sessions;
@@ -933,6 +934,7 @@ function renderSessionsHtml(sessions, scoresMap) {
   const filterGroups = [
     { key:'src', label:'Source', value:svFilters.src, opts:[['all','All'],['claude','Claude Code'],['pi','Pi Agent'],['codex','Codex CLI']] },
     { key:'model', label:'Model', value:svFilters.model, opts:[['all','All'],...allModels.map(m=>[m,m])] },
+    { key:'grade', label:'Grade', value:svFilters.grade, opts:[['all','All'],['S','S'],['A','A'],['B','B'],['C','C'],['D','D'],['F','F']] },
   ];
   return `<div class="sv">
     <div class="sv-filters">${filterGroups.map(f=>`<div class="sv-filter-group"><span class="sv-filter-label">${f.label}</span><div class="sv-filter-pills">${f.opts.map(([v,lbl]) => `<button class="sv-pill${f.value===v?' active':''}" onclick="svFilters.${f.key}='${v}';loadSessions()">${lbl}</button>`).join('')}</div></div>`).join('')}</div>

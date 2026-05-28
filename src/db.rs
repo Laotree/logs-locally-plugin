@@ -318,14 +318,21 @@ impl Db {
         &self,
         model_filter: Option<&str>,
         source_filter: Option<&str>,
+        grade_filter: Option<&str>,
         since: Option<&str>,
         keyword: Option<&str>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Session>> {
         let conn = self.conn.lock().unwrap();
-        let mut sql = String::from(
-            "SELECT s.id, s.title, s.model, s.created_at, s.updated_at, s.message_count, s.token_count, s.cwd, s.git_branch, s.version, s.source FROM sessions s WHERE 1=1",
+        let join = if grade_filter.is_some() {
+            " JOIN scores sc ON sc.session_id = s.id"
+        } else {
+            ""
+        };
+        let mut sql = format!(
+            "SELECT s.id, s.title, s.model, s.created_at, s.updated_at, s.message_count, s.token_count, s.cwd, s.git_branch, s.version, s.source FROM sessions s{} WHERE 1=1",
+            join
         );
         let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -336,6 +343,10 @@ impl Db {
         if let Some(source) = source_filter {
             sql.push_str(" AND s.source = ?");
             param_values.push(Box::new(source.to_string()));
+        }
+        if let Some(grade) = grade_filter {
+            sql.push_str(" AND sc.grade = ?");
+            param_values.push(Box::new(grade.to_string()));
         }
         if let Some(since) = since {
             sql.push_str(" AND s.updated_at >= ?");
