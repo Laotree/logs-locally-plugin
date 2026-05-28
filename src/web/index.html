@@ -183,6 +183,7 @@
   .llp-src { font-size: 10px; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.06em; text-transform: lowercase; font-weight: 600; font-family: "JetBrains Mono", monospace; }
   .llp-src.claude { background: color-mix(in oklch, var(--accent) 12%, transparent); color: var(--accent-d); }
   .llp-src.pi { background: color-mix(in oklch, var(--accent-2) 12%, transparent); color: var(--accent-2d); }
+  .llp-src.codex { background: color-mix(in oklch, #22c55e 12%, transparent); color: #15803d; }
 
   /* ── Contribution Heatmap ────────────────────────────────── */
   .llp-hm-dot { width: 9px; height: 9px; border-radius: 50%; }
@@ -449,8 +450,9 @@ function GradeBadge(grade, size) {
 
 /* ── Source Badge ───────────────────────────────────────────── */
 function SourceBadge(source) {
-  const cls = source === 'claude' ? 'claude' : 'pi';
-  return `<span class="llp-src ${cls}">${source === 'claude' ? 'claude' : 'pi'}</span>`;
+  const s = source || 'claude';
+  const cls = ['claude', 'pi', 'codex'].includes(s) ? s : 'claude';
+  return `<span class="llp-src ${cls}">${s}</span>`;
 }
 
 /* ── KPI ────────────────────────────────────────────────────── */
@@ -929,7 +931,7 @@ function renderSessionsHtml(sessions, scoresMap) {
   // Gather unique models for filter
   const allModels = [...new Set(sessions.map(s=>s.model).filter(Boolean))];
   const filterGroups = [
-    { key:'src', label:'Source', value:svFilters.src, opts:[['all','All'],['claude','Claude Code'],['pi','Pi Agent']] },
+    { key:'src', label:'Source', value:svFilters.src, opts:[['all','All'],['claude','Claude Code'],['pi','Pi Agent'],['codex','Codex CLI']] },
     { key:'model', label:'Model', value:svFilters.model, opts:[['all','All'],...allModels.map(m=>[m,m])] },
   ];
   return `<div class="sv">

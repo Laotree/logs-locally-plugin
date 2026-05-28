@@ -124,6 +124,29 @@ async fn main() -> Result<()> {
                 }
             }
 
+            // Also import the latest Codex session, if configured.
+            if let Some(ref codex_dir) = cfg.codex_sessions_dir {
+                match parser::find_latest_codex_session(codex_dir) {
+                    Ok(Some(codex_path)) => {
+                        for db_path in cfg.effective_db_paths() {
+                            let db = db::Db::open(db_path)?;
+                            match parser::import_codex_session(&db, &codex_path) {
+                                Ok(true) => {
+                                    println!("Imported codex session to {}: {}", db_path.display(), codex_path.display());
+                                    any_imported = true;
+                                }
+                                Ok(false) => {}
+                                Err(e) => {
+                                    eprintln!("Error importing codex session: {}", e);
+                                }
+                            }
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => eprintln!("Warning: could not search codex sessions: {}", e),
+                }
+            }
+
             if !any_imported {
                 println!("No new data imported.");
             }
@@ -180,12 +203,19 @@ async fn main() -> Result<()> {
                 Vec::new()
             };
 
-            if claude_entries.is_empty() && pi_entries.is_empty() {
+            let codex_entries: Vec<_> = if let Some(ref codex_dir) = cfg.codex_sessions_dir {
+                parser::list_codex_session_files(codex_dir)?
+            } else {
+                Vec::new()
+            };
+
+            if claude_entries.is_empty() && pi_entries.is_empty() && codex_entries.is_empty() {
                 anyhow::bail!(
-                    "no session files found for {:?} (checked Claude: {:?}, pi: {:?})",
+                    "no session files found for {:?} (checked Claude: {:?}, pi: {:?}, codex: {:?})",
                     project_dir,
                     sessions_dir,
-                    cfg.pi_jsonl_dir
+                    cfg.pi_jsonl_dir,
+                    cfg.codex_sessions_dir,
                 );
             }
 
@@ -225,6 +255,23 @@ async fn main() -> Result<()> {
                         Ok(false) => {}
                         Err(e) => {
                             eprintln!("Error importing pi session {} to {}: {}", path.display(), db_path.display(), e);
+                        }
+                    }
+                }
+                if imported_to_any { count += 1; }
+            }
+
+            for path in &codex_entries {
+                let mut imported_to_any = false;
+                for (db_path, db) in &dbs {
+                    match parser::import_codex_session(db, path) {
+                        Ok(true) => {
+                            println!("Imported codex session to {}: {}", db_path.display(), path.display());
+                            imported_to_any = true;
+                        }
+                        Ok(false) => {}
+                        Err(e) => {
+                            eprintln!("Error importing codex session {} to {}: {}", path.display(), db_path.display(), e);
                         }
                     }
                 }

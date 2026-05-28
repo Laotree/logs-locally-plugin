@@ -18,7 +18,7 @@ pub struct Session {
     pub cwd: Option<String>,
     pub git_branch: Option<String>,
     pub version: Option<String>,
-    /// Origin agent: "claude" | "pi"
+    /// Origin agent: "claude" | "pi" | "codex"
     pub source: String,
 }
 

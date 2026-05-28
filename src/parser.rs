@@ -437,3 +437,274 @@ pub fn import_pi_session(db: &crate::db::Db, jsonl_path: &Path) -> Result<bool> 
     }
     Ok(imported)
 }
+
+// ─── Codex CLI session support ────────────────────────────────────────────────
+
+/// Find the most recently modified Codex JSONL file under the date-structured sessions dir.
+pub fn find_latest_codex_session(codex_sessions_dir: &Path) -> Result<Option<std::path::PathBuf>> {
+    let mut latest: Option<(std::path::PathBuf, SystemTime)> = None;
+
+    fn walk(dir: &Path, latest: &mut Option<(std::path::PathBuf, SystemTime)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, latest);
+            } else if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                let modified = entry
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .unwrap_or(SystemTime::UNIX_EPOCH);
+                match latest {
+                    Some((_, t)) if modified <= *t => {}
+                    _ => *latest = Some((path, modified)),
+                }
+            }
+        }
+    }
+
+    walk(codex_sessions_dir, &mut latest);
+    Ok(latest.map(|(p, _)| p))
+}
+
+/// List all Codex JSONL files under the date-structured sessions dir, sorted by path.
+pub fn list_codex_session_files(codex_sessions_dir: &Path) -> Result<Vec<std::path::PathBuf>> {
+    let mut files: Vec<std::path::PathBuf> = Vec::new();
+
+    fn walk(dir: &Path, files: &mut Vec<std::path::PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, files);
+            } else if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                files.push(path);
+            }
+        }
+    }
+
+    walk(codex_sessions_dir, &mut files);
+    files.sort();
+    Ok(files)
+}
+
+/// Parse a single Codex CLI JSONL session file into a `Session` + messages.
+pub fn parse_codex_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("reading {:?}", path))?;
+
+    let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
+
+    let mut session = Session {
+        id: file_stem.to_string(),
+        title: None,
+        model: None,
+        created_at: String::new(),
+        updated_at: String::new(),
+        message_count: 0,
+        token_count: 0,
+        cwd: None,
+        git_branch: None,
+        version: None,
+        source: "codex".to_string(),
+    };
+
+    let mut messages: Vec<Message> = Vec::new();
+    let mut first_ts: Option<String> = None;
+    let mut last_ts: Option<String> = None;
+
+    // Per-turn state for aggregating assistant content
+    let mut current_turn_id: Option<String> = None;
+    let mut assistant_parts: Vec<String> = Vec::new();
+    let mut user_msg_id: Option<String> = None;
+    let mut turn_ts: String = String::new();
+
+    let flush_assistant = |turn_id: &str,
+                           parts: &mut Vec<String>,
+                           user_id: &Option<String>,
+                           ts: &str,
+                           session_id: &str,
+                           messages: &mut Vec<Message>| {
+        if parts.is_empty() {
+            return;
+        }
+        let content = parts.join("\n\n");
+        parts.clear();
+        messages.push(Message {
+            id: format!("{}-assistant", turn_id),
+            session_id: session_id.to_string(),
+            role: "assistant".to_string(),
+            content,
+            created_at: ts.to_string(),
+            token_count: 0,
+            parent_id: user_id.clone(),
+            model: None,
+        });
+    };
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let obj: Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let ts = obj["timestamp"].as_str().unwrap_or("").to_string();
+        if !ts.is_empty() {
+            if first_ts.is_none() {
+                first_ts = Some(ts.clone());
+            }
+            if last_ts.is_none() || ts > *last_ts.as_ref().unwrap() {
+                last_ts = Some(ts.clone());
+            }
+        }
+
+        match obj["type"].as_str().unwrap_or("") {
+            "session_meta" => {
+                let payload = &obj["payload"];
+                if let Some(id) = payload["id"].as_str() {
+                    session.id = id.to_string();
+                }
+                if let Some(created) = payload["timestamp"].as_str() {
+                    first_ts = Some(created.to_string());
+                }
+                session.cwd = payload["cwd"].as_str().map(|s| scrub_sensitive(s));
+                session.git_branch = payload["git"]["branch"].as_str().map(|s| s.to_string());
+                session.version = payload["cli_version"].as_str().map(|s| s.to_string());
+                if let Some(provider) = payload["model_provider"].as_str() {
+                    session.model = Some(provider.to_string());
+                }
+            }
+            "event_msg" => {
+                let payload = &obj["payload"];
+                match payload["type"].as_str().unwrap_or("") {
+                    "task_started" => {
+                        // Flush previous turn's assistant content before starting new turn
+                        if let Some(ref tid) = current_turn_id.clone() {
+                            flush_assistant(tid, &mut assistant_parts, &user_msg_id, &turn_ts, &session.id, &mut messages);
+                        }
+                        current_turn_id = payload["turn_id"].as_str().map(|s| s.to_string());
+                        user_msg_id = None;
+                        turn_ts = ts.clone();
+                    }
+                    "user_message" => {
+                        let text = payload["message"].as_str().unwrap_or("").to_string();
+                        if text.is_empty() {
+                            continue;
+                        }
+                        let msg_id = current_turn_id
+                            .as_deref()
+                            .map(|t| format!("{}-user", t))
+                            .unwrap_or_else(|| format!("{}-user", file_stem));
+
+                        // Title from first user message
+                        if session.title.is_none() {
+                            let first_line = text.lines().next().unwrap_or("").trim();
+                            if !first_line.is_empty() {
+                                let title = if first_line.chars().count() > 60 {
+                                    let truncated: String = first_line.chars().take(60).collect();
+                                    format!("{}…", truncated)
+                                } else {
+                                    first_line.to_string()
+                                };
+                                session.title = Some(title);
+                            }
+                        }
+
+                        user_msg_id = Some(msg_id.clone());
+                        messages.push(Message {
+                            id: msg_id,
+                            session_id: session.id.clone(),
+                            role: "user".to_string(),
+                            content: scrub_sensitive(&text),
+                            created_at: ts.clone(),
+                            token_count: 0,
+                            parent_id: None,
+                            model: None,
+                        });
+                    }
+                    "token_count" => {
+                        let total = payload["info"]["total_token_usage"]["total_tokens"]
+                            .as_i64()
+                            .unwrap_or(0);
+                        if total > session.token_count {
+                            session.token_count = total;
+                        }
+                    }
+                    "task_complete" => {
+                        if let Some(ref tid) = current_turn_id.clone() {
+                            flush_assistant(tid, &mut assistant_parts, &user_msg_id, &ts, &session.id, &mut messages);
+                        }
+                        current_turn_id = None;
+                    }
+                    _ => {}
+                }
+            }
+            "response_item" => {
+                let payload = &obj["payload"];
+                match payload["type"].as_str().unwrap_or("") {
+                    "reasoning" => {
+                        // Aggregate reasoning summary text into assistant content
+                        if let Some(summaries) = payload["summary"].as_array() {
+                            let text: Vec<&str> = summaries
+                                .iter()
+                                .filter_map(|s| s["text"].as_str())
+                                .collect();
+                            if !text.is_empty() {
+                                assistant_parts.push(format!("[thinking]{}\n[/thinking]", text.join(" ")));
+                            }
+                        }
+                    }
+                    "function_call" => {
+                        let name = payload["name"].as_str().unwrap_or("unknown");
+                        if let Ok(args) = serde_json::from_str::<Value>(
+                            payload["arguments"].as_str().unwrap_or("{}"),
+                        ) {
+                            assistant_parts.push(format!(
+                                "[tool: {}]\n{}[/tool]",
+                                name,
+                                serde_json::to_string_pretty(&args).unwrap_or_default()
+                            ));
+                        } else {
+                            assistant_parts.push(format!("[tool: {}]", name));
+                        }
+                    }
+                    "function_call_output" => {
+                        let output = payload["output"].as_str().unwrap_or("").trim();
+                        if !output.is_empty() {
+                            assistant_parts.push(format!("[tool_result]\n{}[/tool_result]", output));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Flush any remaining assistant content from the last turn
+    if let Some(ref tid) = current_turn_id.clone() {
+        flush_assistant(tid, &mut assistant_parts, &user_msg_id, &last_ts.as_deref().unwrap_or(""), &session.id, &mut messages);
+    }
+
+    session.created_at = first_ts.unwrap_or_else(iso_now);
+    session.updated_at = last_ts.unwrap_or_else(iso_now);
+    session.message_count = messages.len() as i64;
+
+    Ok((session, messages))
+}
+
+/// Import a Codex session file into the database, scoring it on success.
+pub fn import_codex_session(db: &crate::db::Db, jsonl_path: &Path) -> Result<bool> {
+    let (session, messages) = parse_codex_session_file(jsonl_path)?;
+    let imported = db.import_session(&session, &messages)?;
+    if imported {
+        if let Some(score) = crate::scorer::score_session(&session, &messages) {
+            db.upsert_score(&score).context("storing codex session score")?;
+        }
+    }
+    Ok(imported)
+}

@@ -30,6 +30,11 @@ pub struct Config {
     #[serde(rename = "piJsonlDir")]
     pub pi_jsonl_dir: Option<PathBuf>,
 
+    /// Codex CLI sessions directory (optional).
+    /// Set to `~/.codex/sessions` to also import Codex sessions.
+    #[serde(rename = "codexSessionsDir")]
+    pub codex_sessions_dir: Option<PathBuf>,
+
     /// Host for the web server
     #[serde(default = "default_host")]
     pub host: String,
@@ -95,6 +100,8 @@ impl Config {
                             .collect();
                         config.pi_jsonl_dir = config.pi_jsonl_dir
                             .map(|p| expand_tilde(&p.to_string_lossy()));
+                        config.codex_sessions_dir = config.codex_sessions_dir
+                            .map(|p| expand_tilde(&p.to_string_lossy()));
                         config
                     }
                     Err(e) => {
@@ -116,6 +123,7 @@ impl Config {
             db_path: default_db_path(),
             claude_projects_dir: default_claude_dir(),
             pi_jsonl_dir: None,
+            codex_sessions_dir: None,
             host: default_host(),
             port: default_port(),
             push_token: None,
