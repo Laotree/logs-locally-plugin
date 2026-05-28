@@ -195,21 +195,30 @@ Options:
   push         Push daily aggregated activity to a remote llp server
 ```
 
-## GitHub Profile Chart (Fly.io)
+## GitHub Profile Chart (Cloudflare Workers)
 
 Embed a live token/session heatmap in your GitHub profile README — two contribution-style grids, no raw session content ever leaves your machine.
 
-### 1. Deploy to Fly.io
+The SVG is rendered **locally** by `llp push` and stored on a Cloudflare Worker (free tier). The Worker is ~40 lines of JavaScript with no build step.
+
+### 1. Deploy the Worker
 
 ```bash
-fly auth login
-fly apps create llp-chart          # or any name you prefer
-fly volumes create llp_data --size 1 --region nrt
-fly secrets set LLP_PUSH_TOKEN=$(openssl rand -hex 32)
-fly deploy
+cd workers
+npm install          # installs wrangler locally
+npx wrangler login
+
+# Create a KV namespace and paste the returned id into wrangler.toml
+npx wrangler kv namespace create CHART
+# Edit workers/wrangler.toml: replace REPLACE_WITH_YOUR_KV_NAMESPACE_ID
+
+# Set the shared secret (must match pushToken in config.json)
+npx wrangler secret put PUSH_TOKEN
+
+npx wrangler deploy
 ```
 
-Your chart is now live at `https://llp-chart.fly.dev/chart.svg`.
+Your chart is now live at `https://llp-chart.<your-subdomain>.workers.dev/chart.svg`.
 
 ### 2. Configure locally
 
@@ -224,10 +233,10 @@ Add to `config.json`:
 ### 3. Push activity data
 
 ```bash
-llp push https://llp-chart.fly.dev
+llp push https://llp-chart.<your-subdomain>.workers.dev
 ```
 
-Sends only daily aggregates (`day`, `session_count`, `token_count`) — no titles, messages, or any session content.
+`llp push` renders the SVG locally from your DB — only the final image is sent to the Worker, no raw session content.
 
 Optionally add to your `Stop` hook to push automatically on every session end:
 
@@ -235,7 +244,7 @@ Optionally add to your `Stop` hook to push automatically on every session end:
 {
   "hooks": {
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "llp import && llp push https://llp-chart.fly.dev" }] }
+      { "hooks": [{ "type": "command", "command": "llp import && llp push https://llp-chart.<your-subdomain>.workers.dev" }] }
     ]
   }
 }
@@ -244,8 +253,12 @@ Optionally add to your `Stop` hook to push automatically on every session end:
 ### 4. Add to your GitHub profile README
 
 ```markdown
-![Activity](https://llp-chart.fly.dev/chart.svg)
+![Activity](https://llp-chart.<your-subdomain>.workers.dev/chart.svg)
 ```
+
+### Self-hosted alternative
+
+If you prefer to run the full server yourself (Docker / VPS), the `Dockerfile` in the repo still works — use `llp push <your-server-url>` the same way.
 
 ---
 
