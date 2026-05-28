@@ -52,20 +52,13 @@ async fn handle_push(
     headers: HeaderMap,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    // Extract bearer token — it is the sole user identity
+    // Bearer token is optional. If present, use it as the user identity.
+    // Otherwise, fall back to the `user` field from the push payload.
     let token = headers
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .unwrap_or("");
-
-    if token.is_empty() {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({"error": "missing Authorization: Bearer <token>"})),
-        )
-            .into_response();
-    }
 
     let svg = match payload["svg"].as_str() {
         Some(s) => s.to_string(),
@@ -78,7 +71,13 @@ async fn handle_push(
         }
     };
 
-    let hash = token_hash(token);
+    // If no bearer token, derive identity from the `user` field sent by the client.
+    let identity = if token.is_empty() {
+        payload["user"].as_str().unwrap_or("anonymous")
+    } else {
+        token
+    };
+    let hash = token_hash(identity);
 
     // Rate limit: sliding 1-hour window per user hash
     {

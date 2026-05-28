@@ -286,12 +286,6 @@ async fn main() -> Result<()> {
                 .ok()
                 .or_else(|| cfg.push_token.clone())
                 .unwrap_or_default();
-            if token.is_empty() {
-                anyhow::bail!(
-                    "pushToken not configured. Set `pushToken` in config.json \
-                     or export LLP_PUSH_TOKEN=<secret>"
-                );
-            }
 
             let push_url = url
                 .or_else(|| cfg.push_url.clone())
@@ -314,14 +308,19 @@ async fn main() -> Result<()> {
 
             let user = cfg.push_user.as_deref().unwrap_or("anonymous");
             let client = reqwest::Client::new();
-            let target = format!("{}/api/push", push_url.trim_end_matches('/'));
-            let resp = client
+            let base = push_url.trim_end_matches('/');
+            let target = if base.starts_with("http://") || base.starts_with("https://") {
+                format!("{}/api/push", base)
+            } else {
+                format!("http://{}/api/push", base)
+            };
+            let mut req = client
                 .post(&target)
-                .bearer_auth(&token)
-                .json(&serde_json::json!({ "user": user, "svg": svg, "days": days }))
-                .send()
-                .await
-                .context("sending push request")?;
+                .json(&serde_json::json!({ "user": user, "svg": svg, "days": days }));
+            if !token.is_empty() {
+                req = req.bearer_auth(&token);
+            }
+            let resp = req.send().await.context("sending push request")?;
 
             if !resp.status().is_success() {
                 anyhow::bail!("push failed: HTTP {}", resp.status());
