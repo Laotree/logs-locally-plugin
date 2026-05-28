@@ -67,6 +67,8 @@ enum Commands {
         #[arg(short, long)]
         port: Option<u16>,
     },
+    /// Print the version and exit.
+    Version,
 }
 
 #[tokio::main]
@@ -452,6 +454,10 @@ async fn main() -> Result<()> {
                 }
             }
             println!("Done. Scored: {}, Trivial (N/A): {}.", scored, skipped);
+        }
+
+        Commands::Version => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
         }
     }
 
