@@ -320,6 +320,18 @@ async fn main() -> Result<()> {
             }
             let resp = req.send().await.context("sending push request")?;
 
+            if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                let retry_mins = resp
+                    .headers()
+                    .get("Retry-After")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .map(|secs| (secs + 59) / 60);
+                match retry_mins {
+                    Some(m) => anyhow::bail!("rate limited — try again in {} minute(s)", m),
+                    None => anyhow::bail!("rate limited — try again in up to 1 hour"),
+                }
+            }
             if !resp.status().is_success() {
                 anyhow::bail!("push failed: HTTP {}", resp.status());
             }
