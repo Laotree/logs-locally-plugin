@@ -183,6 +183,11 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
       <h3>Local &amp; private</h3>
       <p>Everything stays on your machine. Sensitive data (API keys, tokens, credentials) is scrubbed before storage.</p>
     </div>
+    <div class="feature">
+      <div class="icon">&#128293;</div>
+      <h3>Activity heatmap</h3>
+      <p>Renders a contribution-style SVG heatmap of your sessions and tokens locally, then pushes it to a Cloudflare Worker for sharing — no raw session content leaves your machine.</p>
+    </div>
   </div>
 </section>
 
@@ -292,6 +297,11 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
       <div class="icon">&#128260;</div>
       <h3><code>llp rescore</code></h3>
       <p>Re-evaluate session quality scores after upgrading. Trivial sessions are marked N/A.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128293;</div>
+      <h3><code>llp push</code></h3>
+      <p>Render an activity heatmap SVG locally and upload it to your Cloudflare Worker or self-hosted relay. Offers to schedule a daily auto-push at 09:00 on first run.</p>
     </div>
   </div>
 </section>
