@@ -1,0 +1,11 @@
+services:
+  relay:
+    build: .
+    image: llp:latest
+    restart: unless-stopped
+    environment:
+      MODE: relay
+      LLP_CF_WORKER_URL: ${LLP_CF_WORKER_URL}
+      LLP_CF_PUSH_TOKEN: ${LLP_CF_PUSH_TOKEN}
+    ports:
+      - "${PORT:-8485}:8485"

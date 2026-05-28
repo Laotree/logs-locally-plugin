@@ -8,3 +8,4 @@ node_modules/
 # Cloudflare Workers — contain real KV namespace IDs and local secrets
 workers/wrangler.toml
 workers/.dev.vars
+.env
