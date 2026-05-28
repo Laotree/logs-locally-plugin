@@ -190,7 +190,7 @@ Commands:
   serve        Start the local web server for browsing logs
   import-all   Import all existing sessions from a project
   rescore      Re-score all sessions in the database
-  push         Push daily aggregated activity to a relay or CF Worker
+  push         Push daily activity heatmap to relay (default: https://llp.qingyuejiaju.cn)
   relay        Start the multi-user relay server (operator use)
   help         Print help
 
@@ -210,25 +210,15 @@ Embed a live token/session heatmap in your GitHub profile README — two contrib
 ### Option A — Use the official relay (easiest)
 
 The official relay accepts pushes from any `llp` user and stores each user's chart anonymously on a shared Cloudflare Worker.  
-Your chart URL is derived from a SHA-256 hash of your token — it cannot be guessed and is not linked to your username.
+Your chart URL is derived from a SHA-256 hash of your identity — it cannot be guessed.
 
-**1. Configure `config.json`**
-
-```json
-{
-  "pushToken": "<your-secret-token>",
-  "pushUser":  "<your-display-name>",
-  "pushUrl":   "<official-relay-url>"
-}
-```
-
-> `pushUser` is a display label only. `pushToken` is the privacy key — pick something long and random (e.g. `openssl rand -hex 32`). Even if two users pick the same display name, their charts are separate because the URL is derived from the token.
-
-**2. Push**
+**1. Push (no config needed)**
 
 ```bash
 llp push
 ```
+
+That's it. `llp push` defaults to `https://llp.qingyuejiaju.cn`. No `pushToken`, no `pushUrl`, no config file required.
 
 On first run `llp push` will ask whether you want a daily cron job at 09:00 — press `y` to install it automatically.
 
@@ -237,6 +227,26 @@ You'll receive a chart URL like:
 ```
 https://llp-chart.laotree.workers.dev/chart/<16-char-hash>.svg
 ```
+
+**2. Optional: set a push identity**
+
+If you want a stable chart URL across machines, set a token:
+
+```bash
+export LLP_PUSH_TOKEN=<your-secret-token>
+llp push
+```
+
+Or in `config.json`:
+
+```json
+{
+  "pushToken": "<your-secret-token>",
+  "pushUser":  "<your-display-name>"
+}
+```
+
+> `pushUser` is a display label only. `pushToken` is the privacy key — pick something long and random (e.g. `openssl rand -hex 32`). Without a token, the relay uses your hostname or `"anonymous"` as the identity.
 
 **3. Add to your GitHub profile README**
 
@@ -282,6 +292,23 @@ Push with `llp push` — chart is at `https://llp-chart.<your-subdomain>.workers
 
 You can run your own relay with Docker and point it at any Cloudflare Worker:
 
+**With `docker compose`:**
+
+```yaml
+services:
+  relay:
+    image: ghcr.io/laotree/logs-locally-plugin:latest
+    restart: unless-stopped
+    environment:
+      MODE: relay
+      LLP_CF_WORKER_URL: https://llp-chart.<your-subdomain>.workers.dev
+      LLP_CF_PUSH_TOKEN: <cf-worker-push-token>
+    ports:
+      - "8485:8485"
+```
+
+**Or with `docker run`:**
+
 ```bash
 docker run -d \
   -e MODE=relay \
@@ -291,7 +318,7 @@ docker run -d \
   ghcr.io/laotree/logs-locally-plugin:latest
 ```
 
-Users then point their `pushUrl` at your relay's address. The relay is stateless — it derives an anonymous hash from each user's token and forwards only `{hash, svg}` to the CF Worker.
+The relay is stateless — it accepts pushes with or without a token. When no Bearer token is provided, it uses the `user` field from the push payload as the identity. It forwards only `{hash, svg}` to the CF Worker.
 
 **Environment variables for the relay:**
 

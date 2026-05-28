@@ -58,8 +58,8 @@ pub struct Config {
     pub push_user: Option<String>,
 
     /// Default relay URL for `llp push` (can be overridden on the command line).
-    #[serde(rename = "pushUrl")]
-    pub push_url: Option<String>,
+    #[serde(rename = "pushUrl", default = "default_push_url")]
+    pub push_url: String,
 }
 
 fn default_db_path() -> PathBuf {
@@ -76,6 +76,10 @@ fn default_host() -> String {
 
 fn default_port() -> u16 {
     8484
+}
+
+fn default_push_url() -> String {
+    "https://llp.qingyuejiaju.cn".to_string()
 }
 
 fn dirs_home_dir() -> PathBuf {
@@ -129,7 +133,7 @@ impl Config {
             push_token: None,
             data_dir: None,
             push_user: None,
-            push_url: None,
+            push_url: default_push_url(),
         };
         c.db_path = expand_tilde(&c.db_path.to_string_lossy());
         c.claude_projects_dir = expand_tilde(&c.claude_projects_dir.to_string_lossy());
