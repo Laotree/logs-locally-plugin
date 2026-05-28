@@ -37,11 +37,12 @@ enum Commands {
         #[arg(short, long)]
         port: Option<u16>,
     },
-    /// Import all existing sessions from a project.
+    /// Import all existing sessions. Without an argument, imports every project
+    /// found under the configured Claude projects directory. With an argument,
+    /// imports only the sessions for that specific project directory.
     ImportAll {
-        /// Optional: project directory path (defaults to current working directory)
-        #[arg(default_value = ".")]
-        project_dir: PathBuf,
+        /// Project directory path. Omit to import all projects.
+        project_dir: Option<PathBuf>,
     },
     /// Score (or re-score) all sessions in the database that don't yet have a score.
     /// Useful after upgrading from a version that didn't include session scoring.
@@ -182,23 +183,52 @@ async fn main() -> Result<()> {
         }
 
         Commands::ImportAll { project_dir } => {
-            let project_dir_name = config::Config::project_dir_name(&project_dir);
-            let sessions_dir = cfg.claude_projects_dir.join(&project_dir_name);
-
-            let mut claude_entries: Vec<_> = if sessions_dir.exists() {
-                std::fs::read_dir(&sessions_dir)
-                    .context("reading Claude sessions directory")?
-                    .filter_map(|e| e.ok())
-                    .map(|e| e.path())
-                    .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("jsonl"))
-                    .collect()
-            } else {
-                Vec::new()
+            let claude_entries: Vec<PathBuf> = match project_dir.as_ref() {
+                Some(dir) => {
+                    let dir_name = config::Config::project_dir_name(dir);
+                    let sessions_dir = cfg.claude_projects_dir.join(&dir_name);
+                    if sessions_dir.exists() {
+                        let mut v: Vec<_> = std::fs::read_dir(&sessions_dir)
+                            .context("reading Claude sessions directory")?
+                            .filter_map(|e| e.ok())
+                            .map(|e| e.path())
+                            .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("jsonl"))
+                            .collect();
+                        v.sort();
+                        v
+                    } else {
+                        Vec::new()
+                    }
+                }
+                None => {
+                    // Collect all .jsonl files from every project under claude_projects_dir
+                    let mut v = Vec::new();
+                    if cfg.claude_projects_dir.exists() {
+                        for project in std::fs::read_dir(&cfg.claude_projects_dir)
+                            .context("reading Claude projects directory")?
+                            .filter_map(|e| e.ok())
+                        {
+                            let p = project.path();
+                            if !p.is_dir() { continue; }
+                            if let Ok(sessions) = std::fs::read_dir(&p) {
+                                for session in sessions.filter_map(|e| e.ok()) {
+                                    let path = session.path();
+                                    if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                                        v.push(path);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    v.sort();
+                    v
+                }
             };
-            claude_entries.sort();
-
             let pi_entries: Vec<_> = if let Some(ref pi_dir) = cfg.pi_jsonl_dir {
-                parser::list_pi_session_files(pi_dir, &project_dir)?
+                match project_dir.as_ref() {
+                    Some(dir) => parser::list_pi_session_files(pi_dir, dir)?,
+                    None => parser::list_all_pi_session_files(pi_dir)?,
+                }
             } else {
                 Vec::new()
             };
@@ -210,13 +240,21 @@ async fn main() -> Result<()> {
             };
 
             if claude_entries.is_empty() && pi_entries.is_empty() && codex_entries.is_empty() {
-                anyhow::bail!(
-                    "no session files found for {:?} (checked Claude: {:?}, pi: {:?}, codex: {:?})",
-                    project_dir,
-                    sessions_dir,
-                    cfg.pi_jsonl_dir,
-                    cfg.codex_sessions_dir,
-                );
+                match project_dir.as_ref() {
+                    Some(dir) => anyhow::bail!(
+                        "no session files found for {:?} (checked Claude: {:?}, pi: {:?}, codex: {:?})",
+                        dir,
+                        cfg.claude_projects_dir.join(config::Config::project_dir_name(dir)),
+                        cfg.pi_jsonl_dir,
+                        cfg.codex_sessions_dir,
+                    ),
+                    None => anyhow::bail!(
+                        "no session files found (checked Claude: {:?}, pi: {:?}, codex: {:?})",
+                        cfg.claude_projects_dir,
+                        cfg.pi_jsonl_dir,
+                        cfg.codex_sessions_dir,
+                    ),
+                }
             }
 
             let dbs: Vec<(PathBuf, db::Db)> = cfg

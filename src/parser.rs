@@ -262,6 +262,34 @@ pub fn find_latest_pi_session(pi_jsonl_dir: &Path, project_path: &Path) -> Resul
     Ok(latest.map(|(p, _)| p))
 }
 
+/// Return all pi JSONL files across every project under `pi_jsonl_dir`, sorted by path.
+pub fn list_all_pi_session_files(pi_jsonl_dir: &Path) -> Result<Vec<std::path::PathBuf>> {
+    if !pi_jsonl_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for project in std::fs::read_dir(pi_jsonl_dir)
+        .context("reading pi dir")?
+        .filter_map(|e| e.ok())
+    {
+        let project_path = project.path();
+        if !project_path.is_dir() {
+            continue;
+        }
+        for session in std::fs::read_dir(&project_path)
+            .context("reading pi project dir")?
+            .filter_map(|e| e.ok())
+        {
+            let path = session.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                entries.push(path);
+            }
+        }
+    }
+    entries.sort();
+    Ok(entries)
+}
+
 /// Return all pi JSONL files for `project_path`, sorted by name (chronological).
 pub fn list_pi_session_files(pi_jsonl_dir: &Path, project_path: &Path) -> Result<Vec<std::path::PathBuf>> {
     let dir_name = pi_project_dir_name(project_path);
