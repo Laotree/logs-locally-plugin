@@ -21,10 +21,16 @@ RUN apt-get update \
 
 COPY --from=builder /app/target/release/llp /usr/local/bin/llp
 
-# Data directory for persisted activity.json (mount a Fly volume here)
+# Data directory for persisted activity.json
 RUN mkdir -p /data
 ENV LLP_DATA_DIR=/data
 
-EXPOSE 8484
+# Default mode is the local log browser.
+# Override with: docker run -e MODE=relay ...
+# Relay requires: LLP_CF_WORKER_URL, LLP_CF_PUSH_TOKEN
+ENV MODE=serve
+EXPOSE 8484 8485
 
-CMD ["llp", "serve", "--port", "8484"]
+CMD ["/bin/sh", "-c", \
+  "if [ \"$MODE\" = \"relay\" ]; then exec llp relay --port ${PORT:-8485}; \
+   else exec llp serve --port ${PORT:-8484}; fi"]

@@ -187,25 +187,69 @@ Commands:
   serve        Start the local web server for browsing logs
   import-all   Import all existing sessions from a project
   rescore      Re-score all sessions in the database
+  push         Push daily aggregated activity to a relay or CF Worker
+  relay        Start the multi-user relay server (operator use)
   help         Print help
 
 Options:
   -c, --config <FILE>  Path to config file [default: config.json]
   -h, --help           Print help
-  push         Push daily aggregated activity to a remote llp server
 ```
 
-## GitHub Profile Chart (Cloudflare Workers)
+## GitHub Profile Chart
 
-Embed a live token/session heatmap in your GitHub profile README — two contribution-style grids, no raw session content ever leaves your machine.
+Embed a live token/session heatmap in your GitHub profile README — two contribution-style grids (sessions 🟠 and tokens 🔵), no raw session content ever leaves your machine.
 
-The SVG is rendered **locally** by `llp push` and stored on a Cloudflare Worker (free tier). The Worker is ~40 lines of JavaScript with no build step.
+`llp push` renders the SVG **locally** from your DB aggregates and uploads only the final image. No session titles, messages, or raw content are transmitted.
 
-### 1. Deploy the Worker
+---
+
+### Option A — Use the official relay (easiest)
+
+The official relay accepts pushes from any `llp` user and stores each user's chart anonymously on a shared Cloudflare Worker.  
+Your chart URL is derived from a SHA-256 hash of your token — it cannot be guessed and is not linked to your username.
+
+**1. Configure `config.json`**
+
+```json
+{
+  "pushToken": "<your-secret-token>",
+  "pushUser":  "<your-display-name>",
+  "pushUrl":   "<official-relay-url>"
+}
+```
+
+> `pushUser` is a display label only. `pushToken` is the privacy key — pick something long and random (e.g. `openssl rand -hex 32`). Even if two users pick the same display name, their charts are separate because the URL is derived from the token.
+
+**2. Push**
+
+```bash
+llp push
+```
+
+On first run `llp push` will ask whether you want a daily cron job at 09:00 — press `y` to install it automatically.
+
+You'll receive a chart URL like:
+
+```
+https://llp-chart.laotree.workers.dev/chart/<16-char-hash>.svg
+```
+
+**3. Add to your GitHub profile README**
+
+```markdown
+![Activity](https://llp-chart.laotree.workers.dev/chart/<your-hash>.svg)
+```
+
+---
+
+### Option B — Self-hosted Worker (full control)
+
+Deploy your own Cloudflare Worker (free tier, ~40 lines of JS, no build step):
 
 ```bash
 cd workers
-npm install          # installs wrangler locally
+npm install
 npx wrangler login
 
 # Create a KV namespace and paste the returned id into wrangler.toml
@@ -218,47 +262,56 @@ npx wrangler secret put PUSH_TOKEN
 npx wrangler deploy
 ```
 
-Your chart is now live at `https://llp-chart.<your-subdomain>.workers.dev/chart.svg`.
-
-### 2. Configure locally
-
-Add to `config.json`:
+Then configure `config.json`:
 
 ```json
 {
-  "pushToken": "<same secret you set above>"
+  "pushToken": "<same secret you set above>",
+  "pushUrl":   "https://llp-chart.<your-subdomain>.workers.dev"
 }
 ```
 
-### 3. Push activity data
+Push with `llp push` — chart is at `https://llp-chart.<your-subdomain>.workers.dev/chart.svg`.
+
+---
+
+### Option C — Self-hosted relay (run your own relay server)
+
+You can run your own relay with Docker and point it at any Cloudflare Worker:
 
 ```bash
-llp push https://llp-chart.<your-subdomain>.workers.dev
+docker run -d \
+  -e MODE=relay \
+  -e LLP_CF_WORKER_URL=https://llp-chart.<your-subdomain>.workers.dev \
+  -e LLP_CF_PUSH_TOKEN=<cf-worker-push-token> \
+  -p 8485:8485 \
+  ghcr.io/laotree/logs-locally-plugin:latest
 ```
 
-`llp push` renders the SVG locally from your DB — only the final image is sent to the Worker, no raw session content.
+Users then point their `pushUrl` at your relay's address. The relay is stateless — it derives an anonymous hash from each user's token and forwards only `{hash, svg}` to the CF Worker.
 
-Optionally add to your `Stop` hook to push automatically on every session end:
+**Environment variables for the relay:**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LLP_CF_WORKER_URL` | ✅ | Target Cloudflare Worker URL |
+| `LLP_CF_PUSH_TOKEN` | ✅ | Bearer token for the CF Worker's `/api/push` |
+| `PORT` | optional | Listen port (default: 8485) |
+
+---
+
+### Auto-push on session end
+
+Add to your `Stop` hook to push automatically after every Claude session:
 
 ```json
 {
   "hooks": {
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "llp import && llp push https://llp-chart.<your-subdomain>.workers.dev" }] }
+      { "hooks": [{ "type": "command", "command": "llp import && llp push --no-schedule" }] }
     ]
   }
 }
-```
-
-### 4. Add to your GitHub profile README
-
-```markdown
-![Activity](https://llp-chart.<your-subdomain>.workers.dev/chart.svg)
-```
-
-### Self-hosted alternative
-
-If you prefer to run the full server yourself (Docker / VPS), the `Dockerfile` in the repo still works — use `llp push <your-server-url>` the same way.
 
 ---
 
