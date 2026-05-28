@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.2] — 2026-05-28
+
+### Fixed
+- `llp push` no longer prompts to schedule a cron job if one is already installed
+- `llp push` now shows how long to wait when rate limited (e.g. "try again in 47 minute(s)") instead of a bare HTTP 429 error
+
+### Meta
+- Added `license`, `repository`, and `readme` fields to `Cargo.toml`; first release published to [crates.io](https://crates.io/crates/logs-locally-plugin)
+
 ## [0.8.1] — 2026-05-28
 
 ### Changed
