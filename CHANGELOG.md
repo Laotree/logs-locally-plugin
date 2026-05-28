@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.7.0] — 2026-05-28
+
+### Added
+- **Codex CLI session support** — import OpenAI Codex CLI sessions from `~/.codex/sessions/` into the same SQLite database alongside Claude Code and Pi sessions
+- New config field `codexSessionsDir` (optional) — set to `~/.codex/sessions` to enable Codex imports
+- `source="codex"` tag on all Codex sessions; green badge in web UI; "Codex CLI" filter pill in session browser
+- Per-turn assistant messages aggregated from Codex reasoning summaries, function calls, and tool outputs
+
 ## [0.6.0] — 2026-05-28
 
 ### Added
