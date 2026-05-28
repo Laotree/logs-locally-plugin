@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.4] — 2026-05-28
+
+### Fixed
+- `llp import-all` without arguments now imports all projects (previously required explicit args)
+
 ## [0.8.3] — 2026-05-28
 
 ### Changed
