@@ -113,9 +113,9 @@
 </nav>
 
 <div class="hero">
-  <div class="badge">Claude Code + Pi Agent</div>
+  <div class="badge">Claude Code · Pi Agent · Codex CLI</div>
   <h1>Never lose an <span>AI session</span> again</h1>
-  <p>Automatically save every Claude Code and Pi agent conversation to a local database. Browse, search, score, and replay your sessions through a beautiful web UI.</p>
+  <p>Automatically save every Claude Code, Pi agent, and Codex CLI conversation to a local database. Browse, search, score, and replay your sessions through a beautiful web UI.</p>
   <div class="actions">
     <a class="primary" href="#install">Get Started</a>
     <a class="secondary" href="https://github.com/Laotree/logs-locally-plugin">View on GitHub</a>
@@ -128,10 +128,11 @@ $ llp serve
 <span class="cmd">Logs Locally Plugin web server running at http://127.0.0.1:8484
 Open your browser and start browsing your session logs!</span>
 
-<span class="comment"># Auto-imports Claude &amp; Pi sessions on exit:</span>
+<span class="comment"># Auto-imports Claude, Pi &amp; Codex sessions on exit:</span>
 $ llp import
 <span class="cmd">Imported: 960a0652-c62c-4ece-b42e-c047ddfbbe7e.jsonl
-Imported pi session: 20250527_183324.jsonl</span>
+Imported pi session: 20250527_183324.jsonl
+Imported codex session: rollout-2026-05-28T13-27-14-019e6d0d.jsonl</span>
 
 <span class="comment"># Bulk import all history for a project:</span>
 $ llp import-all ~/my-project
@@ -151,12 +152,12 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
     <div class="feature">
       <div class="icon">&#9889;</div>
       <h3>Zero-effort capture</h3>
-      <p>Just install and the <code>Stop</code> hook saves each session on exit. Supports both Claude Code and Pi agent sessions.</p>
+      <p>Just install and the <code>Stop</code> hook saves each session on exit. Supports Claude Code, Pi agent, and Codex CLI sessions.</p>
     </div>
     <div class="feature">
       <div class="icon">&#128269;</div>
       <h3>Full-text search</h3>
-      <p>Search across all your sessions by keyword, filter by model, source (Claude/Pi), or narrow by time range.</p>
+      <p>Search across all your sessions by keyword, filter by model, source (Claude/Pi/Codex), or narrow by time range.</p>
     </div>
     <div class="feature">
       <div class="icon">&#128200;</div>
@@ -193,7 +194,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
 
 <section id="install">
   <h2>Install <span>in seconds</span></h2>
-  <p>Works with Claude Code and Pi agent. Choose your path.</p>
+  <p>Works with Claude Code, Pi agent, and Codex CLI. Choose your path.</p>
   <div class="steps">
     <div class="step">
       <div class="num"></div>
@@ -281,7 +282,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
     <div class="feature">
       <div class="icon">&#8682;</div>
       <h3><code>llp import</code></h3>
-      <p>Import the latest Claude Code and Pi session for the current project. Idempotent — safe to run on every exit.</p>
+      <p>Import the latest Claude Code, Pi, and Codex session for the current project. Idempotent — safe to run on every exit.</p>
     </div>
     <div class="feature">
       <div class="icon">&#127760;</div>
@@ -291,7 +292,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
     <div class="feature">
       <div class="icon">&#128194;</div>
       <h3><code>llp import-all</code></h3>
-      <p>Bulk import all past sessions (Claude + Pi) for a project. Useful for initial setup.</p>
+      <p>Bulk import all past sessions (Claude + Pi + Codex) for a project. Useful for initial setup.</p>
     </div>
     <div class="feature">
       <div class="icon">&#128260;</div>
@@ -307,7 +308,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
 </section>
 
 <footer>
-  <p><a href="https://github.com/Laotree/logs-locally-plugin">Logs Locally Plugin</a> &mdash; MIT License &mdash; Built for the <a href="https://code.claude.com">Claude Code</a> &amp; <a href="https://github.com/earendil-works/pi-coding-agent">Pi agent</a> ecosystem</p>
+  <p><a href="https://github.com/Laotree/logs-locally-plugin">Logs Locally Plugin</a> &mdash; MIT License &mdash; Built for the <a href="https://code.claude.com">Claude Code</a>, <a href="https://github.com/earendil-works/pi-coding-agent">Pi agent</a> &amp; <a href="https://github.com/openai/codex">Codex CLI</a> ecosystem</p>
 </footer>
 
 </body>
