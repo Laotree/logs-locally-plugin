@@ -1,20 +1,48 @@
 [![Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-f5a623)](https://laotree.github.io/logs-locally-plugin/)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-# Logs Locally Plugin
+# llp — Zero-config session history for Claude Code
 
-Store and browse Claude Code, Pi agent, **and Codex CLI** session logs in a local SQLite database with a built-in web UI and automatic session scoring.
+**Every Claude Code session disappears when you close the terminal.** `llp` saves them all to a local SQLite database and gives you a searchable web UI — automatically, after every session.
 
 **[Homepage](https://laotree.github.io/logs-locally-plugin/) &middot; [Installation](#installation) &middot; [GitHub](https://github.com/Laotree/logs-locally-plugin)**
 
+```bash
+# Install (macOS / Linux)
+brew tap Laotree/tap && brew install llp
+
+# Save your latest session right now
+llp import
+
+# Browse all sessions at http://127.0.0.1:8484
+llp serve
+```
+
+Then add one line to `~/.claude/settings.json` so it runs automatically on every session exit:
+
+```json
+{
+  "hooks": {
+    "Stop": [{ "hooks": [{ "type": "command", "command": "llp import" }] }]
+  }
+}
+```
+
+That's it. No daemon, no cloud, no API key.
+
+---
+
+> **What is "plugin"?** The name reflects that `llp` integrates with Claude Code's `Stop` hook — but it's a plain CLI binary. No marketplace or plugin runtime required. Install with Homebrew or `cargo install` and it works.
+
 ![Logs Locally web UI — session list and conversation detail](docs/screenshot.png)
 
-```
-llp import       # save the latest session to SQLite
-llp serve        # start the web log browser
-llp import-all   # bulk import all historical sessions for a project
-llp rescore      # re-score all sessions (for version upgrades)
-```
+### What you get
+
+- **Full session history** — every Claude Code, Pi agent, and Codex CLI session stored in SQLite
+- **Searchable web UI** — filter by model, time, keyword, or quality score
+- **Automatic quality scoring** — 7 dimensions (security, efficiency, planning…) with letter grades
+- **Privacy-first** — API keys, tokens, and email addresses are scrubbed before storage; nothing leaves your machine
+- **GitHub profile chart** — embed a live activity heatmap in your profile README (`llp push`)
 
 ## How It Works
 
@@ -446,3 +474,17 @@ Before storage, all content is scrubbed for sensitive data:
 - Environment variable secrets (names ending in KEY/SECRET/TOKEN/PASSWORD)
 - Home directory paths (`/Users/name` → `~`)
 - Email addresses
+
+## Improving discoverability (manual steps)
+
+A few things that can't be automated — worth doing once:
+
+**GitHub topics** — go to your repo → About (gear icon) → Topics, add:
+
+```
+claude-code  rust  cli  sqlite  developer-tools  llm  session-logging  ai-tools
+```
+
+**Demo GIF** — record a 10-second terminal session (`asciinema` or QuickTime) showing `llp import && llp serve`. Drop it in `docs/` and embed it near the top of this README.
+
+**Post it once** — a short post on [r/ClaudeAI](https://www.reddit.com/r/ClaudeAI/) or [Dev.to](https://dev.to/) with the framing: "I got tired of losing my Claude Code sessions — built a local history tool." One post, no spam.
