@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.5] — 2026-05-28
+
+### Added
+- `llp version` command — prints the current version and exits
+
+### Changed
+- Removed marketplace install instructions from README (not yet available)
+
 ## [0.8.4] — 2026-05-28
 
 ### Fixed
