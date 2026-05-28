@@ -7,7 +7,8 @@
 /// Configuration (env vars):
 ///   LLP_CF_WORKER_URL   — URL of the target CF Worker (required)
 ///   LLP_CF_PUSH_TOKEN   — Bearer token for the CF Worker's /api/push (required)
-///   LLP_RELAY_PORT      — listen port (default: 8485)
+///
+/// Listen port: set with `--port` flag (default: 8485)
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
