@@ -82,21 +82,6 @@ cp target/release/llp ~/.local/bin/llp
 
 > Make sure `~/.local/bin` is in your `PATH`.
 
-### Option 4: Install as a Claude Code plugin (marketplace)
-
-Once published to the community marketplace:
-
-```
-/plugin install logs-locally-plugin@claude-community
-```
-
-The plugin provides the `Stop` hook and a `/logs-locally-plugin:serve` skill automatically. After installing, run:
-
-```
-/plugin enable logs-locally-plugin@claude-community
-/reload-plugins
-```
-
 ## Configuration
 
 ### Claude Code Hook (auto-import on exit)
