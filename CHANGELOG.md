@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.0] — 2026-05-28
+
+### Added
+- **Default push URL** — `llp push` now defaults to `https://llp.qingyuejiaju.cn`, no config needed
+- **Anonymous push support** — `pushToken` is no longer required; relay accepts pushes without a Bearer token, using the `user` field for identity instead
+- **CI Docker build workflow** — GitHub Actions automatically builds and pushes Docker images to `ghcr.io/laotree/logs-locally-plugin` on every push to `main`
+- `docker-compose.yml` now pulls from `ghcr.io` instead of building locally — zero-build deployment on low-performance machines
+
+### Changed
+- `pushUrl` config field now has a default value (`https://llp.qingyuejiaju.cn`), defined in `config.rs`
+- Push URL normalization: auto-prepends `http://` or `https://` when no scheme is provided
+
 ## [0.7.0] — 2026-05-28
 
 ### Added
