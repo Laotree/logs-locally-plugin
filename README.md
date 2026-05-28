@@ -296,7 +296,7 @@ Users then point their `pushUrl` at your relay's address. The relay is stateless
 |----------|----------|-------------|
 | `LLP_CF_WORKER_URL` | ✅ | Target Cloudflare Worker URL |
 | `LLP_CF_PUSH_TOKEN` | ✅ | Bearer token for the CF Worker's `/api/push` |
-| `PORT` | optional | Listen port (default: 8485) |
+| `LLP_MAX_PUSHES_PER_HOUR` | optional | Per-user rate limit (default: 5) |
 
 ---
 
@@ -312,6 +312,7 @@ Add to your `Stop` hook to push automatically after every Claude session:
     ]
   }
 }
+```
 
 ---
 
