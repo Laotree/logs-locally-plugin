@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.6] — 2026-05-28
+
+### Fixed
+- `llp push`, `llp relay`, `llp version` commands now included in published binary (v0.8.5 tag was cut before these were added)
+
 ## [0.8.5] — 2026-05-28
 
 ### Added
