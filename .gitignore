@@ -3,3 +3,4 @@ target/
 *.db
 *.db-journal
 state.json
+node_modules/
