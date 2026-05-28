@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.3] — 2026-05-28
+
+### Changed
+- README restructured: problem → solution → copy-paste setup for faster onboarding
+- README title and opening now correctly reflect multi-agent scope (Claude Code, Pi agent, Codex CLI)
+- Added activity heatmap live SVG preview to README
+- GitHub repository topics updated: added `sqlite` and `llm`
+
 ## [0.8.2] — 2026-05-28
 
 ### Fixed
