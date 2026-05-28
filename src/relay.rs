@@ -89,9 +89,19 @@ async fn handle_push(
             queue.pop_front();
         }
         if queue.len() >= state.max_pushes_per_hour {
+            let retry_secs = queue
+                .front()
+                .map(|oldest| {
+                    window
+                        .saturating_sub(now.duration_since(*oldest))
+                        .as_secs()
+                        .max(1)
+                })
+                .unwrap_or(3600);
             return (
                 StatusCode::TOO_MANY_REQUESTS,
-                Json(serde_json::json!({"error": "rate limit exceeded"})),
+                [("Retry-After", retry_secs.to_string())],
+                Json(serde_json::json!({"error": "rate limit exceeded", "retry_after": retry_secs})),
             )
                 .into_response();
         }
