@@ -1,9 +1,9 @@
 [![Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-f5a623)](https://laotree.github.io/logs-locally-plugin/)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-# llp — Zero-config session history for Claude Code
+# llp — Local session history for AI coding agents
 
-**Every Claude Code session disappears when you close the terminal.** `llp` saves them all to a local SQLite database and gives you a searchable web UI — automatically, after every session.
+**Claude Code, Pi agent, and Codex CLI sessions disappear when you close the terminal.** `llp` saves all of them to a local SQLite database and gives you a searchable web UI — automatically, after every session.
 
 **[Homepage](https://laotree.github.io/logs-locally-plugin/) &middot; [Installation](#installation) &middot; [GitHub](https://github.com/Laotree/logs-locally-plugin)**
 
