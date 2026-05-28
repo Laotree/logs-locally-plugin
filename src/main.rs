@@ -309,10 +309,19 @@ async fn main() -> Result<()> {
                 .await
                 .context(format!("binding to {addr}"))?;
 
+            let max_pushes_per_hour = std::env::var("LLP_MAX_PUSHES_PER_HOUR")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(5usize);
+
             let state = relay::RelayState {
                 cf_worker_url: cf_worker_url.clone(),
                 cf_push_token,
                 http: reqwest::Client::new(),
+                max_pushes_per_hour,
+                rate_limiter: std::sync::Arc::new(std::sync::Mutex::new(
+                    std::collections::HashMap::new(),
+                )),
             };
             let app = relay::router(state);
 

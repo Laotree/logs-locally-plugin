@@ -16,13 +16,19 @@ use axum::{
     Router,
 };
 use sha2::{Digest, Sha256};
-use std::sync::Arc;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 #[derive(Clone)]
 pub struct RelayState {
     pub cf_worker_url: String,
     pub cf_push_token: String,
     pub http: reqwest::Client,
+    /// Max pushes per user per hour (sliding window).
+    pub max_pushes_per_hour: usize,
+    /// Per-user push timestamps for rate limiting.
+    pub rate_limiter: Arc<Mutex<HashMap<String, VecDeque<Instant>>>>,
 }
 
 pub fn router(state: RelayState) -> Router {
@@ -72,6 +78,25 @@ async fn handle_push(
     };
 
     let hash = token_hash(token);
+
+    // Rate limit: sliding 1-hour window per user hash
+    {
+        let now = Instant::now();
+        let window = Duration::from_secs(3600);
+        let mut limiter = state.rate_limiter.lock().unwrap();
+        let queue = limiter.entry(hash.clone()).or_default();
+        while queue.front().map_or(false, |t| now.duration_since(*t) > window) {
+            queue.pop_front();
+        }
+        if queue.len() >= state.max_pushes_per_hour {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(serde_json::json!({"error": "rate limit exceeded"})),
+            )
+                .into_response();
+        }
+        queue.push_back(now);
+    }
 
     // Forward to CF Worker with the anonymous hash as the routing key
     let target = format!("{}/api/push", state.cf_worker_url.trim_end_matches('/'));
