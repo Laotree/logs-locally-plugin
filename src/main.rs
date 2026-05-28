@@ -412,6 +412,18 @@ async fn main() -> Result<()> {
 fn maybe_schedule_cron(config_path: &std::path::Path, push_url: &str) -> Result<()> {
     use std::io::Write;
 
+    // Read existing crontab (ignore error — no crontab yet is fine)
+    let existing = std::process::Command::new("crontab")
+        .arg("-l")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or_default();
+
+    if existing.contains(push_url) {
+        return Ok(());
+    }
+
     print!("Schedule daily auto-push at 09:00? [y/N] ");
     std::io::stdout().flush().ok();
     let mut answer = String::new();
@@ -430,19 +442,6 @@ fn maybe_schedule_cron(config_path: &std::path::Path, push_url: &str) -> Result<
         config_abs.display(),
         push_url,
     );
-
-    // Read existing crontab (ignore error — no crontab yet is fine)
-    let existing = std::process::Command::new("crontab")
-        .arg("-l")
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .unwrap_or_default();
-
-    if existing.contains(push_url) {
-        println!("Daily cron job already exists — no change.");
-        return Ok(());
-    }
 
     let new_crontab = format!("{existing}{entry}");
     let mut child = std::process::Command::new("crontab")
