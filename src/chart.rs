@@ -107,9 +107,7 @@ pub fn render_svg(data: &ActivityData) -> String {
 
         // Section label
         s.push_str(&format!(
-            r#"<text x="{grid_x}" y="{y:.1}" fill="{color}" \
-font-family="monospace" font-size="10" font-weight="600" \
-letter-spacing="2" opacity="0.75">{label}</text>"#,
+            r#"<text x="{grid_x}" y="{y:.1}" fill="{color}" font-family="monospace" font-size="10" font-weight="600" letter-spacing="2" opacity="0.75">{label}</text>"#,
             y = lbl_y + 10.0,
         ));
 
@@ -121,8 +119,7 @@ letter-spacing="2" opacity="0.75">{label}</text>"#,
                 if m != last_month {
                     let x = grid_x + wi as f32 * stride;
                     s.push_str(&format!(
-                        r#"<text x="{x:.1}" y="{y:.1}" \
-fill="rgba(255,255,255,0.35)" font-family="monospace" font-size="9">{}</text>"#,
+                        r#"<text x="{x:.1}" y="{y:.1}" fill="rgba(255,255,255,0.35)" font-family="monospace" font-size="9">{}</text>"#,
                         months[m as usize],
                         y = lbl_y + section_lbl_h + 10.0,
                     ));
@@ -135,9 +132,7 @@ fill="rgba(255,255,255,0.35)" font-family="monospace" font-size="9">{}</text>"#,
         for di in [1usize, 3, 5] {
             let y = grid_y + di as f32 * stride + cell * 0.78;
             s.push_str(&format!(
-                r#"<text x="{x:.1}" y="{y:.1}" \
-fill="rgba(255,255,255,0.28)" font-family="monospace" font-size="9" \
-text-anchor="end">{}</text>"#,
+                r#"<text x="{x:.1}" y="{y:.1}" fill="rgba(255,255,255,0.28)" font-family="monospace" font-size="9" text-anchor="end">{}</text>"#,
                 day_labels[di],
                 x = grid_x - 4.0,
             ));
