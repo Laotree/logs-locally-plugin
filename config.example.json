@@ -7,5 +7,6 @@
   "piJsonlDir": "~/.pi/agent/sessions",
   "codexSessionsDir": "~/.codex/sessions",
   "host": "127.0.0.1",
-  "port": 8484
+  "port": 8484,
+  "pushUrl": "https://your-custom-relay.example.com"
 }

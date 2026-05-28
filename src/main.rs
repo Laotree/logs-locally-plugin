@@ -287,9 +287,7 @@ async fn main() -> Result<()> {
                 .or_else(|| cfg.push_token.clone())
                 .unwrap_or_default();
 
-            let push_url = url
-                .or_else(|| cfg.push_url.clone())
-                .unwrap_or_else(|| "https://llp.qingyuejiaju.cn".to_string());
+            let push_url = url.unwrap_or_else(|| cfg.push_url.clone());
 
             let db = db::Db::open(cfg.primary_db_path())?;
             let records = db.get_daily_activity(None)?;
