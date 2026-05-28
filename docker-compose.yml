@@ -1,7 +1,6 @@
 services:
   relay:
-    build: .
-    image: llp:latest
+    image: ghcr.io/laotree/logs-locally-plugin:latest
     restart: unless-stopped
     environment:
       MODE: relay
