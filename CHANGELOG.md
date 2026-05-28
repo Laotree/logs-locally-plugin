@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.1] — 2026-05-28
+
+### Changed
+- Security audit: no sensitive information found; codebase is clean
+
 ## [0.8.0] — 2026-05-28
 
 ### Added
