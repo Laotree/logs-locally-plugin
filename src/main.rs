@@ -289,7 +289,7 @@ async fn main() -> Result<()> {
 
             let push_url = url
                 .or_else(|| cfg.push_url.clone())
-                .context("no push URL: pass one as argument or set `pushUrl` in config.json")?;
+                .unwrap_or_else(|| "https://llp.qingyuejiaju.cn".to_string());
 
             let db = db::Db::open(cfg.primary_db_path())?;
             let records = db.get_daily_activity(None)?;
