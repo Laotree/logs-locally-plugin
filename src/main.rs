@@ -240,12 +240,22 @@ async fn main() -> Result<()> {
                 .collect();
             let count = days.len();
 
+            // Render SVG locally so the remote server (CF Worker or self-hosted)
+            // never needs to know about raw session data.
+            let activity = chart::ActivityData {
+                days: days.clone(),
+                updated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+            };
+            let svg = chart::render_svg(&activity);
+
             let client = reqwest::Client::new();
             let target = format!("{}/api/push", url.trim_end_matches('/'));
             let resp = client
                 .post(&target)
                 .bearer_auth(&token)
-                .json(&serde_json::json!({ "days": days }))
+                // svg: for CF Worker (store-and-serve)
+                // days: for self-hosted server (dashboard re-render)
+                .json(&serde_json::json!({ "svg": svg, "days": days }))
                 .send()
                 .await
                 .context("sending push request")?;

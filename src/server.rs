@@ -15,6 +15,8 @@ pub struct AppState {
     pub db: Arc<Db>,
     /// Aggregated activity data received via POST /api/push.
     pub activity: Arc<RwLock<ActivityData>>,
+    /// Pre-rendered SVG received via POST /api/push (takes priority over re-rendering).
+    pub cached_svg: Arc<RwLock<Option<String>>>,
     /// Token required in `Authorization: Bearer <token>` for /api/push.
     pub push_token: String,
     /// Optional path to persist activity.json across restarts.
@@ -46,6 +48,7 @@ pub fn router(db: Db, cfg: RouterConfig) -> Router {
     let state = AppState {
         db: Arc::new(db),
         activity: Arc::new(RwLock::new(initial_activity)),
+        cached_svg: Arc::new(RwLock::new(None)),
         push_token: cfg.push_token,
         data_path: cfg.data_path,
     };
@@ -254,6 +257,11 @@ async fn handle_push(
         }
     }
 
+    // Accept pre-rendered SVG (sent by llp push for CF Worker compatibility)
+    if let Some(svg) = payload["svg"].as_str() {
+        *state.cached_svg.write().unwrap() = Some(svg.to_string());
+    }
+
     let days: Vec<DayRecord> = payload["days"]
         .as_array()
         .unwrap_or(&vec![])
@@ -279,10 +287,15 @@ async fn handle_push(
 }
 
 /// Return a dark SVG with two contribution-style heatmaps (sessions + tokens).
+/// Uses the pre-rendered SVG from the last `llp push` if available;
+/// falls back to rendering from stored activity data.
 /// Safe to embed in a public GitHub profile README.
 async fn get_chart_svg(State(state): State<AppState>) -> impl IntoResponse {
-    let data = state.activity.read().unwrap().clone();
-    let svg = crate::chart::render_svg(&data);
+    let svg = state.cached_svg.read().unwrap().clone()
+        .unwrap_or_else(|| {
+            let data = state.activity.read().unwrap().clone();
+            crate::chart::render_svg(&data)
+        });
     (
         [(axum::http::header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
          (axum::http::header::CACHE_CONTROL, "no-cache, max-age=0")],
