@@ -111,19 +111,21 @@ pub fn render_svg(data: &ActivityData) -> String {
             y = lbl_y + 10.0,
         ));
 
-        // Month labels (only first occurrence per month)
+        // Month labels — skip if too close to the previous label (< 28 px ≈ 2 columns)
         let mut last_month = 99u32;
+        let mut last_label_x = f32::NEG_INFINITY;
         for (wi, week) in weeks.iter().enumerate() {
             if let Some(d) = week.iter().flatten().next() {
                 let m = d.month0();
-                if m != last_month {
-                    let x = grid_x + wi as f32 * stride;
+                let x = grid_x + wi as f32 * stride;
+                if m != last_month && (x - last_label_x) >= 28.0 {
                     s.push_str(&format!(
                         r#"<text x="{x:.1}" y="{y:.1}" fill="rgba(255,255,255,0.35)" font-family="monospace" font-size="9">{}</text>"#,
                         months[m as usize],
                         y = lbl_y + section_lbl_h + 10.0,
                     ));
                     last_month = m;
+                    last_label_x = x;
                 }
             }
         }
