@@ -267,9 +267,9 @@
 
   /* ── Sessions View ──────────────────────────────────────── */
   .sv { padding: 24px 32px 60px; max-width: 1480px; }
-  .sv-filters { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; padding: 12px 16px; background: var(--surf); border: 1px solid var(--line); border-radius: 8px; }
+  .sv-filters { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; padding: 12px 16px; background: var(--surf); border: 1px solid var(--line); border-radius: 8px; }
   .sv-filter-group { display: flex; align-items: center; gap: 8px; }
-  .sv-filter-label { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .sv-filter-label { font-family: "JetBrains Mono", monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); min-width: 52px; }
   .sv-filter-pills { display: flex; gap: 2px; }
   .sv-pill { padding: 4px 10px; font-size: 11.5px; font-weight: 500; color: var(--ink-2); background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer; font-family: "JetBrains Mono", monospace; }
   .sv-pill:hover { color: var(--ink-0); background: var(--bg-sunk); }
@@ -651,6 +651,10 @@ async function loadSessions(filterUpdate) {
   if (!main) return;
   main.innerHTML = loadingEl();
   try {
+    if (svAllModels === null) {
+      try { svAllModels = (await api('/api/stats')).models.map(m => m.model).filter(Boolean); }
+      catch(_) { svAllModels = []; }
+    }
     const params = new URLSearchParams({ limit: '200' });
     if (svFilters.src && svFilters.src !== 'all') params.set('source', svFilters.src);
     if (svFilters.model && svFilters.model !== 'all') params.set('model', svFilters.model);
@@ -926,14 +930,13 @@ function renderDashboardHtml(stats, agg, gd, scoredTotal, unscoredTotal, cells, 
 }
 
 let svFilters = { q:'', src:'all', model:'all', grade:'all' };
+let svAllModels = null;
 
 function renderSessionsHtml(sessions, scoresMap) {
   const filtered = sessions;
-  // Gather unique models for filter
-  const allModels = [...new Set(sessions.map(s=>s.model).filter(Boolean))];
   const filterGroups = [
     { key:'src', label:'Source', value:svFilters.src, opts:[['all','All'],['claude','Claude Code'],['pi','Pi Agent'],['codex','Codex CLI']] },
-    { key:'model', label:'Model', value:svFilters.model, opts:[['all','All'],...allModels.map(m=>[m,m])] },
+    { key:'model', label:'Model', value:svFilters.model, opts:[['all','All'],...(svAllModels||[]).map(m=>[m,m])] },
     { key:'grade', label:'Grade', value:svFilters.grade, opts:[['all','All'],['S','S'],['A','A'],['B','B'],['C','C'],['D','D'],['F','F']] },
   ];
   return `<div class="sv">
