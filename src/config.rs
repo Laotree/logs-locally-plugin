@@ -47,6 +47,14 @@ pub struct Config {
     /// On Fly.io set via `LLP_DATA_DIR` env var to the mounted volume path.
     #[serde(rename = "dataDir")]
     pub data_dir: Option<String>,
+
+    /// Display name sent with each push (used for labelling in relay logs).
+    #[serde(rename = "pushUser")]
+    pub push_user: Option<String>,
+
+    /// Default relay URL for `llp push` (can be overridden on the command line).
+    #[serde(rename = "pushUrl")]
+    pub push_url: Option<String>,
 }
 
 fn default_db_path() -> PathBuf {
@@ -112,6 +120,8 @@ impl Config {
             port: default_port(),
             push_token: None,
             data_dir: None,
+            push_user: None,
+            push_url: None,
         };
         c.db_path = expand_tilde(&c.db_path.to_string_lossy());
         c.claude_projects_dir = expand_tilde(&c.claude_projects_dir.to_string_lossy());
