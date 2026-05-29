@@ -89,6 +89,9 @@
   .heatmap-demo .caption { margin-top: 12px; font-size: 13px; color: var(--text-dim); }
   .heatmap-demo .caption code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: "SF Mono", "JetBrains Mono", monospace; }
 
+  .demo-player { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .demo-player video { display: block; width: 100%; height: auto; background: #282c34; }
+
   footer { border-top: 1px solid var(--border); padding: 40px; text-align: center; color: var(--text-dim); font-size: 13px; }
   footer a { color: var(--text-muted); text-decoration: none; }
   footer a:hover { color: var(--text); }
@@ -111,6 +114,7 @@
   </div>
   <div class="links">
     <a href="#features">Features</a>
+    <a href="#demo">Demo</a>
     <a href="#install">Install</a>
     <a href="#usage">Usage</a>
     <a href="https://github.com/Laotree/logs-locally-plugin" target="_blank">GitHub</a>
@@ -203,6 +207,14 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
   <div class="heatmap-demo">
     <img src="https://llp-chart.laotree.workers.dev/chart/2f183a4e64493af3.svg" alt="Activity heatmap — sessions and token usage over 12 months" />
     <p class="caption">12 months of Claude Code sessions (gold) and token usage (blue) — generated with <code>llp push</code></p>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>See it in <span>action</span></h2>
+  <p>A live terminal walkthrough: install, import sessions, serve the UI, and browse your history.</p>
+  <div class="demo-player">
+    <video src="demo.mp4" poster="demo-poster.jpg" controls playsinline preload="metadata"></video>
   </div>
 </section>
 

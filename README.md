@@ -1,11 +1,13 @@
 [![Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-f5a623)](https://laotree.github.io/logs-locally-plugin/)
 [![MIT License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-# llp — Local session history for AI coding agents
+# llp — zero-config session history for AI coding agents
 
-**Claude Code, Pi agent, and Codex CLI sessions disappear when you close the terminal.** `llp` saves all of them to a local SQLite database and gives you a searchable web UI — automatically, after every session.
+**Claude Code, Pi agent, and Codex CLI sessions vanish the moment you close the terminal.** `llp` saves every one of them to a local SQLite database and gives you a searchable web UI — automatically, after every session. **Zero config. No daemon. No cloud. No API key.**
 
 **[Homepage](https://laotree.github.io/logs-locally-plugin/) &middot; [Installation](#installation) &middot; [GitHub](https://github.com/Laotree/logs-locally-plugin)**
+
+![llp demo — install, import a session, and browse it in the web UI](docs/demo.gif)
 
 ```bash
 # Install (macOS / Linux)
@@ -459,17 +461,3 @@ Before storage, all content is scrubbed for sensitive data:
 - Environment variable secrets (names ending in KEY/SECRET/TOKEN/PASSWORD)
 - Home directory paths (`/Users/name` → `~`)
 - Email addresses
-
-## Improving discoverability (manual steps)
-
-A few things that can't be automated — worth doing once:
-
-**GitHub topics** — go to your repo → About (gear icon) → Topics, add:
-
-```
-claude-code  rust  cli  sqlite  developer-tools  llm  session-logging  ai-tools
-```
-
-**Demo GIF** — record a 10-second terminal session (`asciinema` or QuickTime) showing `llp import && llp serve`. Drop it in `docs/` and embed it near the top of this README.
-
-**Post it once** — a short post on [r/ClaudeAI](https://www.reddit.com/r/ClaudeAI/) or [Dev.to](https://dev.to/) with the framing: "I got tired of losing my Claude Code sessions — built a local history tool." One post, no spam.
