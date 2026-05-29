@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [0.9.0] — 2026-05-29
+
+### Removed
+- **Cloud activity-chart sharing feature** (`llp push`, `llp relay`, the bundled Cloudflare Worker in `workers/`, and the `/api/push` + `/chart.svg` server endpoints). This was the only part of the project that pulled in a Node.js toolchain (`wrangler`) and the heavyweight `reqwest` HTTP/TLS stack.
+  - Dropped dependencies `reqwest`, `sha2`, and `hex`, shrinking the release binary.
+  - Removed config fields `pushToken`, `pushUrl`, `pushUser`, and `dataDir` (silently ignored if still present in an existing `config.json`).
+  - The local web UI is unchanged: the activity heatmap on the dashboard still renders, served from the local SQLite DB via `/api/activity`.
+  - Docker image is now serve-only (relay mode and `docker-compose.yml` removed).
+
 ## [0.8.9] — 2026-05-29
 
 ### Fixed

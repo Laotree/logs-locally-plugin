@@ -1,8 +1,6 @@
-mod chart;
 mod config;
 mod db;
 mod parser;
-mod relay;
 mod scorer;
 mod scrub;
 mod server;
@@ -47,26 +45,6 @@ enum Commands {
     /// Score (or re-score) all sessions in the database that don't yet have a score.
     /// Useful after upgrading from a version that didn't include session scoring.
     Rescore,
-    /// Push daily aggregated activity to a relay or CF Worker.
-    /// Only aggregates are sent — no raw session content, titles, or messages.
-    Push {
-        /// Relay / Worker URL (overrides pushUrl in config.json)
-        url: Option<String>,
-        /// Skip the daily-schedule prompt
-        #[arg(long)]
-        no_schedule: bool,
-    },
-    /// Start the multi-user relay server.
-    /// Receives pushes from many users, forwards each user's SVG to a CF Worker.
-    ///
-    /// Required env vars:
-    ///   LLP_CF_WORKER_URL   — target CF Worker URL
-    ///   LLP_CF_PUSH_TOKEN   — CF Worker push token
-    Relay {
-        /// Listen port (default: 8485)
-        #[arg(short, long)]
-        port: Option<u16>,
-    },
     /// Print the version and exit.
     Version,
 }
@@ -162,19 +140,7 @@ async fn main() -> Result<()> {
                 .await
                 .context(format!("binding to {}", addr))?;
 
-            // Push token: env var takes precedence over config
-            let push_token = std::env::var("LLP_PUSH_TOKEN")
-                .ok()
-                .or_else(|| cfg.push_token.clone())
-                .unwrap_or_default();
-
-            // Data persistence directory for activity.json
-            let data_path = std::env::var("LLP_DATA_DIR")
-                .ok()
-                .or_else(|| cfg.data_dir.clone())
-                .map(|d| std::path::PathBuf::from(d).join("activity.json"));
-
-            let app = server::router(db, server::RouterConfig { push_token, data_path });
+            let app = server::router(db);
 
             println!("Logs Locally Plugin web server running at http://{}", addr);
             println!("Open your browser and start browsing Claude Code session logs!");
@@ -321,111 +287,6 @@ async fn main() -> Result<()> {
             println!("Done. Imported {} new session(s).", count);
         }
 
-        Commands::Push { url, no_schedule } => {
-            let token = std::env::var("LLP_PUSH_TOKEN")
-                .ok()
-                .or_else(|| cfg.push_token.clone())
-                .unwrap_or_default();
-
-            let push_url = url.unwrap_or_else(|| cfg.push_url.clone());
-
-            let db = db::Db::open(cfg.primary_db_path())?;
-            let records = db.get_daily_activity(None)?;
-            let days: Vec<chart::DayRecord> = records
-                .iter()
-                .filter_map(|v| serde_json::from_value(v.clone()).ok())
-                .collect();
-            let count = days.len();
-
-            // Render SVG locally — only the image leaves the machine
-            let activity = chart::ActivityData {
-                days: days.clone(),
-                updated_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
-            };
-            let svg = chart::render_svg(&activity);
-
-            let user = cfg.push_user.as_deref().unwrap_or("anonymous");
-            let client = reqwest::Client::new();
-            let base = push_url.trim_end_matches('/');
-            let target = if base.starts_with("http://") || base.starts_with("https://") {
-                format!("{}/api/push", base)
-            } else {
-                format!("http://{}/api/push", base)
-            };
-            let mut req = client
-                .post(&target)
-                .json(&serde_json::json!({ "user": user, "svg": svg, "days": days }));
-            if !token.is_empty() {
-                req = req.bearer_auth(&token);
-            }
-            let resp = req.send().await.context("sending push request")?;
-
-            if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                let retry_mins = resp
-                    .headers()
-                    .get("Retry-After")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|s| s.parse::<u64>().ok())
-                    .map(|secs| (secs + 59) / 60);
-                match retry_mins {
-                    Some(m) => anyhow::bail!("rate limited — try again in {} minute(s)", m),
-                    None => anyhow::bail!("rate limited — try again in up to 1 hour"),
-                }
-            }
-            if !resp.status().is_success() {
-                anyhow::bail!("push failed: HTTP {}", resp.status());
-            }
-
-            // Print chart URL if the relay returned one
-            if let Ok(body) = resp.json::<serde_json::Value>().await {
-                if let Some(chart_url) = body["chart_url"].as_str() {
-                    println!("Pushed {count} day(s) → {chart_url}");
-                    println!("Add to your GitHub profile README:");
-                    println!("  ![Activity]({chart_url})");
-                } else {
-                    println!("Pushed {count} day(s) of aggregated activity to {push_url}");
-                }
-            }
-
-            // Offer to schedule daily auto-push
-            if !no_schedule {
-                maybe_schedule_cron(&cli.config, &push_url)?;
-            }
-        }
-
-        Commands::Relay { port } => {
-            let cf_worker_url = std::env::var("LLP_CF_WORKER_URL")
-                .context("LLP_CF_WORKER_URL env var not set")?;
-            let cf_push_token = std::env::var("LLP_CF_PUSH_TOKEN")
-                .context("LLP_CF_PUSH_TOKEN env var not set")?;
-
-            let relay_port = port.unwrap_or(8485);
-            let addr = format!("0.0.0.0:{relay_port}");
-            let listener = tokio::net::TcpListener::bind(&addr)
-                .await
-                .context(format!("binding to {addr}"))?;
-
-            let max_pushes_per_hour = std::env::var("LLP_MAX_PUSHES_PER_HOUR")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(5usize);
-
-            let state = relay::RelayState {
-                cf_worker_url: cf_worker_url.clone(),
-                cf_push_token,
-                http: reqwest::Client::new(),
-                max_pushes_per_hour,
-                rate_limiter: std::sync::Arc::new(std::sync::Mutex::new(
-                    std::collections::HashMap::new(),
-                )),
-            };
-            let app = relay::router(state);
-
-            println!("llp relay listening on http://{addr}");
-            println!("Forwarding to CF Worker: {cf_worker_url}");
-            axum::serve(listener, app).await.context("relay server error")?;
-        }
-
         Commands::Rescore => {
             let db = db::Db::open(cfg.primary_db_path())?;
             let ids = db.get_all_session_ids()?;
@@ -461,58 +322,5 @@ async fn main() -> Result<()> {
         }
     }
 
-    Ok(())
-}
-
-/// Ask the user whether they want a daily cron job, then install it if yes.
-fn maybe_schedule_cron(config_path: &std::path::Path, push_url: &str) -> Result<()> {
-    use std::io::Write;
-
-    // Read existing crontab (ignore error — no crontab yet is fine)
-    let existing = std::process::Command::new("crontab")
-        .arg("-l")
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .unwrap_or_default();
-
-    if existing.contains(push_url) {
-        return Ok(());
-    }
-
-    print!("Schedule daily auto-push at 09:00? [y/N] ");
-    std::io::stdout().flush().ok();
-    let mut answer = String::new();
-    std::io::stdin().read_line(&mut answer).ok();
-    if !answer.trim().eq_ignore_ascii_case("y") {
-        return Ok(());
-    }
-
-    let binary = std::env::current_exe().context("finding current binary path")?;
-    let config_abs = std::fs::canonicalize(config_path)
-        .unwrap_or_else(|_| config_path.to_path_buf());
-
-    let entry = format!(
-        "0 9 * * * {} --config {} push {} --no-schedule\n",
-        binary.display(),
-        config_abs.display(),
-        push_url,
-    );
-
-    let new_crontab = format!("{existing}{entry}");
-    let mut child = std::process::Command::new("crontab")
-        .arg("-")
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-        .context("running crontab")?;
-    child
-        .stdin
-        .as_mut()
-        .unwrap()
-        .write_all(new_crontab.as_bytes())
-        .context("writing crontab")?;
-    child.wait().context("waiting for crontab")?;
-
-    println!("✓ Daily cron job added (runs at 09:00). To remove: crontab -e");
     Ok(())
 }
