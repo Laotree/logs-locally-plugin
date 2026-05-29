@@ -41,24 +41,27 @@ brew install Laotree/tap/llp
 
 This repository uses automated publishing via GitHub Actions. When a `v*` tag is pushed to `logs-locally-plugin`, the [publish-homebrew-tap](../.github/workflows/publish-homebrew-tap.yml) workflow sends a `repository_dispatch` event to `Laotree/homebrew-tap`, which updates the formula automatically.
 
+The formula downloads a prebuilt, stripped binary (~1 MB) from the GitHub
+Release — no Rust toolchain or from-source compile is needed on the user's
+machine. The release artifacts are built by
+[`release-binaries.yml`](../.github/workflows/release-binaries.yml). The
+[`publish-homebrew-tap`](../.github/workflows/publish-homebrew-tap.yml) workflow
+waits for those assets, then dispatches to `Laotree/homebrew-tap`, whose
+`scripts/update_formula.py` regenerates the formula — downloading each tarball
+and computing its `sha256`.
+
 #### Manual formula update
 
 If the automated publish didn't fire (e.g. missing token), update the formula manually:
 
-1. Replace the `revision` value in `llp.rb` with the new commit SHA.
-2. Update `version` and `tag` if the version changed.
+1. Bump `version` in `llp.rb`.
+2. Update each `url` to the new tag and replace each `sha256` with the value
+   from the matching `llp-<target>.tar.gz.sha256` asset on the release.
 3. Commit and push to the `homebrew-tap` repo.
 
 ### Release workflow
 
 ```bash
-git tag v0.5.0
-git push origin v0.5.0       # triggers GitHub Actions → homebrew-tap dispatch
-```
-
-### Optional: Archive URL (stable release)
-
-```ruby
-url "https://github.com/Laotree/logs-locally-plugin/archive/refs/tags/v0.5.0.tar.gz"
-sha256 "..."  # run `brew fetch --force-bottle-url <url>` to get the SHA
+git tag v0.8.7
+git push origin v0.8.7   # builds release binaries → dispatches to homebrew-tap
 ```

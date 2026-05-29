@@ -38,6 +38,33 @@ jobs:
             exit 1
           fi
 
+      # release-binaries.yml (same tag trigger) builds and uploads the prebuilt
+      # tarballs the tap formula downloads. Wait until all three exist before
+      # dispatching, so the tap's generator (which downloads + hashes them)
+      # doesn't race ahead and 404.
+      - name: Wait for release binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          targets="aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu"
+          for target in $targets; do
+            asset="llp-${target}.tar.gz"
+            for attempt in $(seq 1 30); do
+              if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+                   --json assets --jq '.assets[].name' 2>/dev/null | grep -qx "$asset"; then
+                echo "found $asset"
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "::error::$asset not found on release $TAG after waiting"
+                exit 1
+              fi
+              echo "waiting for $asset (attempt $attempt)..."
+              sleep 20
+            done
+          done
+
       - name: Trigger homebrew-tap update
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
