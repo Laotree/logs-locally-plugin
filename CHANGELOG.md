@@ -2,10 +2,10 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.8.8] — 2026-05-29
 
 ### Changed
-- **Homebrew now installs a prebuilt binary instead of building from source.** The formula downloads a stripped ~1 MB binary from the GitHub Release — no Rust toolchain or from-source compile required. New `release-binaries.yml` workflow builds per-platform tarballs (macOS arm64/x86_64, Linux x86_64) on `v*` tags, and `publish-homebrew-tap.yml` forwards their sha256s to the tap.
+- **Homebrew now installs a prebuilt binary instead of building from source.** The formula downloads a stripped ~1 MB binary from the GitHub Release — no Rust toolchain or from-source compile required. New `release-binaries.yml` workflow builds per-platform tarballs (macOS arm64/x86_64, Linux x86_64) on `v*` tags; `publish-homebrew-tap.yml` waits for those assets and the tap's generator downloads and hashes them.
 - Release binaries are smaller: `[profile.release]` size optimizations (`opt-level = "z"`, `lto`, `codegen-units = 1`, `strip`, `panic = "abort"`) and trimmed `tokio` features cut the binary from ~8.9 MB to ~3.1 MB.
 
 ### Fixed
