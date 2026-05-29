@@ -31,11 +31,18 @@ jobs:
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Check secret is set
+        run: |
+          if [ -z "${{ secrets.HOMEBREW_TAP_TOKEN }}" ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN secret is not set. Add a fine-grained PAT with 'Contents: write' on Laotree/homebrew-tap."
+            exit 1
+          fi
+
       - name: Trigger homebrew-tap update
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          curl -L \
+          curl --fail -L \
             -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${TAP_TOKEN}" \
