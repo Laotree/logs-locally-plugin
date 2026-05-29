@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.7] — 2026-05-29
+
+### Added
+- Grade filter on the Sessions page — filter by S / A / B / C / D / F
+
+### Changed
+- Filter bar now stacks vertically so all filters are always visible
+- Model filter options are loaded from `/api/stats` (stable across pages) instead of being derived from the current page's sessions
+
 ## [0.8.6] — 2026-05-28
 
 ### Fixed
