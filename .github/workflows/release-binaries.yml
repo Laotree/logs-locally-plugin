@@ -18,6 +18,8 @@ jobs:
   build:
     name: build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write   # create/upload the GitHub Release
     strategy:
       fail-fast: false
       matrix:

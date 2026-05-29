@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.9] — 2026-05-29
+
+### Fixed
+- `release-binaries.yml` could not upload the prebuilt tarballs (HTTP 403 — the job's `GITHUB_TOKEN` lacked `contents: write`); added the permission. (v0.8.8 built but never published a release.)
+
 ## [0.8.8] — 2026-05-29
 
 ### Changed
