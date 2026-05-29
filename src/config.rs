@@ -42,24 +42,6 @@ pub struct Config {
     /// Port for the web server
     #[serde(default = "default_port")]
     pub port: u16,
-
-    /// Secret token for `POST /api/push`.
-    /// On the server side, overridden by the `LLP_PUSH_TOKEN` env var.
-    #[serde(rename = "pushToken")]
-    pub push_token: Option<String>,
-
-    /// Directory for persisting pushed activity data (activity.json).
-    /// On Fly.io set via `LLP_DATA_DIR` env var to the mounted volume path.
-    #[serde(rename = "dataDir")]
-    pub data_dir: Option<String>,
-
-    /// Display name sent with each push (used for labelling in relay logs).
-    #[serde(rename = "pushUser")]
-    pub push_user: Option<String>,
-
-    /// Default relay URL for `llp push` (can be overridden on the command line).
-    #[serde(rename = "pushUrl", default = "default_push_url")]
-    pub push_url: String,
 }
 
 fn default_db_path() -> PathBuf {
@@ -76,10 +58,6 @@ fn default_host() -> String {
 
 fn default_port() -> u16 {
     8484
-}
-
-fn default_push_url() -> String {
-    "https://llp.qingyuejiaju.cn".to_string()
 }
 
 fn dirs_home_dir() -> PathBuf {
@@ -130,10 +108,6 @@ impl Config {
             codex_sessions_dir: None,
             host: default_host(),
             port: default_port(),
-            push_token: None,
-            data_dir: None,
-            push_user: None,
-            push_url: default_push_url(),
         };
         c.db_path = expand_tilde(&c.db_path.to_string_lossy());
         c.claude_projects_dir = expand_tilde(&c.claude_projects_dir.to_string_lossy());
