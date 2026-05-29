@@ -8,8 +8,10 @@ class Llp < Formula
   # produced by .github/workflows/release-binaries.yml. No Rust toolchain or
   # from-source compile required.
   #
-  # The sha256 values below are injected per release by the publish-homebrew-tap
-  # workflow from the `llp-<target>.tar.gz.sha256` files attached to the release.
+  # This is a reference copy. The live formula lives in Laotree/homebrew-tap,
+  # where scripts/update_formula.py regenerates it per release — downloading
+  # each tarball and filling in the real sha256 (the zeros below are
+  # placeholders).
   on_macos do
     on_arm do
       url "https://github.com/Laotree/logs-locally-plugin/releases/download/v0.8.7/llp-aarch64-apple-darwin.tar.gz"

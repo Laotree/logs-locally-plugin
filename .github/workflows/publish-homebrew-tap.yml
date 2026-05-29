@@ -38,33 +38,31 @@ jobs:
             exit 1
           fi
 
-      # Wait for release-binaries.yml to attach the prebuilt tarballs and their
-      # .sha256 sidecar files, then collect the checksums so the tap can render
-      # a binary-download formula (no from-source build for end users).
-      - name: Collect release checksums
-        id: sums
+      # release-binaries.yml (same tag trigger) builds and uploads the prebuilt
+      # tarballs the tap formula downloads. Wait until all three exist before
+      # dispatching, so the tap's generator (which downloads + hashes them)
+      # doesn't race ahead and 404.
+      - name: Wait for release binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           targets="aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu"
           for target in $targets; do
-            asset="llp-${target}.tar.gz.sha256"
-            sha=""
+            asset="llp-${target}.tar.gz"
             for attempt in $(seq 1 30); do
-              if gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-                   --pattern "$asset" --output - 2>/dev/null > sha.txt; then
-                sha="$(cut -d' ' -f1 sha.txt)"
+              if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+                   --json assets --jq '.assets[].name' 2>/dev/null | grep -qx "$asset"; then
+                echo "found $asset"
                 break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "::error::$asset not found on release $TAG after waiting"
+                exit 1
               fi
               echo "waiting for $asset (attempt $attempt)..."
               sleep 20
             done
-            if [ -z "$sha" ]; then
-              echo "::error::checksum $asset not found on release $TAG after waiting"
-              exit 1
-            fi
-            echo "${target}=${sha}" >> "$GITHUB_OUTPUT"
           done
 
       - name: Trigger homebrew-tap update
@@ -81,11 +79,6 @@ jobs:
               "event_type": "update-formula",
               "client_payload": {
                 "formula": "llp",
-                "version": "${{ steps.tag.outputs.tag }}",
-                "sha256": {
-                  "aarch64-apple-darwin": "${{ steps.sums.outputs.aarch64-apple-darwin }}",
-                  "x86_64-apple-darwin": "${{ steps.sums.outputs.x86_64-apple-darwin }}",
-                  "x86_64-unknown-linux-gnu": "${{ steps.sums.outputs.x86_64-unknown-linux-gnu }}"
-                }
+                "version": "${{ steps.tag.outputs.tag }}"
               }
             }'

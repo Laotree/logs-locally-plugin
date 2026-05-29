@@ -44,10 +44,11 @@ This repository uses automated publishing via GitHub Actions. When a `v*` tag is
 The formula downloads a prebuilt, stripped binary (~1 MB) from the GitHub
 Release — no Rust toolchain or from-source compile is needed on the user's
 machine. The release artifacts are built by
-[`release-binaries.yml`](../.github/workflows/release-binaries.yml), and the
-per-platform `sha256` values are forwarded to the tap by the
-[`publish-homebrew-tap`](../.github/workflows/publish-homebrew-tap.yml)
-workflow.
+[`release-binaries.yml`](../.github/workflows/release-binaries.yml). The
+[`publish-homebrew-tap`](../.github/workflows/publish-homebrew-tap.yml) workflow
+waits for those assets, then dispatches to `Laotree/homebrew-tap`, whose
+`scripts/update_formula.py` regenerates the formula — downloading each tarball
+and computing its `sha256`.
 
 #### Manual formula update
 
