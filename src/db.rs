@@ -40,6 +40,7 @@ pub struct Stats {
     pub total_messages: i64,
     pub total_tokens: i64,
     pub models: Vec<ModelStat>,
+    pub version: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -501,7 +502,7 @@ impl Db {
           .collect::<Result<Vec<_>, _>>()
           .context("collecting model stats")?;
 
-        Ok(Stats { total_sessions, total_messages, total_tokens, models })
+        Ok(Stats { total_sessions, total_messages, total_tokens, models, version: env!("CARGO_PKG_VERSION") })
     }
 
     /// Returns per-dimension averages and grade distribution for scored sessions,
