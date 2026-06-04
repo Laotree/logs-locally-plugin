@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [0.9.1] — 2026-06-04
+
+### Changed
+- **Web UI: increased information density.** Padding and gaps reduced ~25% throughout (topbar, KPI cards, panels, session table rows, session detail view), fitting more content into each viewport without scrolling. All sub-12 px label fonts bumped 1–2 px for legibility (nav sections, table headers, badge labels, meta text).
+- **Sidebar version tag is now dynamic.** `/api/stats` exposes `CARGO_PKG_VERSION`; the sidebar reads `stats.version` instead of the previously hardcoded `v0.5.0`.
+
 ## [0.9.0] — 2026-05-29
 
 ### Removed
