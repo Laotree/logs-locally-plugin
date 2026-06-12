@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.10.1] — 2026-06-12
+
+### Changed
+- **Web UI: tech-themed visual overhaul** (#83). Dark-first deep-space palette with neon cyan/violet accents and a refreshed cool light palette; layered blueprint-grid + ambient-glow backdrop; glassmorphism (translucent + backdrop-blur) sidebar, top bar, panels and tables; Oxanium display font for headings, KPI values and grade letters (replaces the Newsreader serif); glow effects on active nav, KPI cards, badges, focus rings and the status pulse dot; view entrance animations and heatmap cell hover zoom. The tweaks panel and gear button are now theme-aware (previously hardcoded light glass), and the forest/plum/crimson/mono accent variants were retuned for both themes. All functionality is unchanged.
+
+### Fixed
+- Web UI: added the missing `llp-spin` keyframes — the loading spinner now actually rotates.
+
 ## [0.10.0] — 2026-06-12
 
 ### Added
