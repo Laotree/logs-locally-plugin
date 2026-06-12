@@ -3,7 +3,7 @@
 
 # llp — zero-config session history for AI coding agents
 
-**Claude Code, Pi agent, and Codex CLI sessions vanish the moment you close the terminal.** `llp` saves every one of them to a local SQLite database and gives you a searchable web UI — automatically, after every session. **Zero config. No daemon. No cloud. No API key.**
+**Claude Code, Pi agent, Codex CLI, and opencode sessions vanish the moment you close the terminal.** `llp` saves every one of them to a local SQLite database and gives you a searchable web UI — automatically, after every session. **Zero config. No daemon. No cloud. No API key.**
 
 **[Homepage](https://laotree.github.io/logs-locally-plugin/) &middot; [Installation](#installation) &middot; [GitHub](https://github.com/Laotree/logs-locally-plugin)**
 
@@ -40,7 +40,7 @@ That's it. No daemon, no cloud, no API key.
 
 ### What you get
 
-- **Full session history** — every Claude Code, Pi agent, and Codex CLI session stored in SQLite
+- **Full session history** — every Claude Code, Pi agent, Codex CLI, and opencode session stored in SQLite
 - **Searchable web UI** — filter by model, time, keyword, or quality score
 - **Automatic quality scoring** — 7 dimensions (security, efficiency, planning…) with letter grades
 - **Privacy-first** — API keys, tokens, and email addresses are scrubbed before storage; nothing leaves your machine
@@ -54,8 +54,9 @@ Each time Claude Code exits, the `Stop` hook triggers `llp import`, which:
 3. Upserts into a local SQLite database (deduplicated by session ID)
 4. Also imports the latest **Pi agent** session for the same project (if `piJsonlDir` is configured)
 5. Also imports the latest **Codex CLI** session (if `codexSessionsDir` is configured)
-5. Scores each session across 7 quality dimensions (security, effectivity, solidity, efficiency, planning, recovery, accuracy)
-6. Scrubs sensitive data (API keys, tokens, credentials, home paths, emails) before storage
+6. Also imports the latest **opencode** session (if `opencodeStorageDir` is configured)
+7. Scores each session across 7 quality dimensions (security, effectivity, solidity, efficiency, planning, recovery, accuracy)
+8. Scrubs sensitive data (API keys, tokens, credentials, home paths, emails) before storage
 
 The `serve` command starts a web UI at `http://127.0.0.1:8484` for browsing and searching sessions.
 
@@ -124,6 +125,7 @@ Create `config.json` in the working directory or pass a custom path with `llp --
   "claude_projects_dir": "~/.claude/projects",
   "piJsonlDir": "~/.pi/agent/sessions",
   "codexSessionsDir": "~/.codex/sessions",
+  "opencodeStorageDir": "~/.local/share/opencode/storage",
   "host": "127.0.0.1",
   "port": 8484
 }
@@ -138,6 +140,7 @@ All fields are optional — defaults are shown above.
 | `claude_projects_dir` | Claude Code sessions directory | `~/.claude/projects` |
 | `piJsonlDir` | Pi agent sessions directory (optional — omit to skip pi imports) | none |
 | `codexSessionsDir` | Codex CLI sessions directory (optional — omit to skip codex imports) | none |
+| `opencodeStorageDir` | opencode storage directory (optional — omit to skip opencode imports) | none |
 | `host` | Web server bind address | `127.0.0.1` |
 | `port` | Web server port | `8484` |
 
@@ -150,7 +153,7 @@ cd /path/to/your/project
 llp import
 ```
 
-This auto-detects the Claude Code project from the current working directory and imports the most recent session (Claude Code, Pi agent, and Codex CLI if configured).
+This auto-detects the Claude Code project from the current working directory and imports the most recent session (plus Pi agent, Codex CLI, and opencode sessions if configured).
 
 You can also import a specific JSONL file:
 
@@ -164,7 +167,7 @@ llp import /path/to/specific/session.jsonl
 llp import-all /path/to/your/project
 ```
 
-Imports every past session (Claude, Pi, and Codex) for the given project directory.
+Imports every past session (Claude, Pi, Codex, and opencode) for the given project directory.
 
 ### Browse logs
 
@@ -181,7 +184,7 @@ Features:
 - Session list with search and filters (by model, source, time range, keyword)
 - Message detail view with thinking blocks and tool calls
 - Session scoring (7 quality dimensions with letter grades S/A/B/C/D/F)
-- **Multi-agent support** — browse Claude Code, Pi agent, and Codex CLI sessions in one UI
+- **Multi-agent support** — browse Claude Code, Pi agent, Codex CLI, and opencode sessions in one UI
 - Live auto-refresh (10s polling)
 - Statistics dashboard (token usage by model, score aggregates)
 - Dark theme, Claude web-inspired design
@@ -200,7 +203,7 @@ Re-evaluates session quality scores. Useful after upgrading from a version that 
 Usage: llp [OPTIONS] <COMMAND>
 
 Commands:
-  import       Import the latest Claude Code, Pi, or Codex session into SQLite
+  import       Import the latest Claude Code, Pi, Codex, or opencode session into SQLite
   serve        Start the local web server for browsing logs
   import-all   Import all existing sessions from a project
   rescore      Re-score all sessions in the database
@@ -256,7 +259,7 @@ CREATE TABLE sessions (
     cwd TEXT,
     git_branch TEXT,
     version TEXT,
-    source TEXT NOT NULL DEFAULT 'claude'   -- 'claude' | 'pi' | 'codex'
+    source TEXT NOT NULL DEFAULT 'claude'   -- 'claude' | 'pi' | 'codex' | 'opencode'
 );
 
 -- Messages table

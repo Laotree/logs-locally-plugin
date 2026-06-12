@@ -6,6 +6,7 @@
   "claude_projects_dir": "~/.claude/projects",
   "piJsonlDir": "~/.pi/agent/sessions",
   "codexSessionsDir": "~/.codex/sessions",
+  "opencodeStorageDir": "~/.local/share/opencode/storage",
   "host": "127.0.0.1",
   "port": 8484
 }

@@ -35,6 +35,11 @@ pub struct Config {
     #[serde(rename = "codexSessionsDir")]
     pub codex_sessions_dir: Option<PathBuf>,
 
+    /// opencode storage directory (optional).
+    /// Set to `~/.local/share/opencode/storage` to also import opencode sessions.
+    #[serde(rename = "opencodeStorageDir")]
+    pub opencode_storage_dir: Option<PathBuf>,
+
     /// Host for the web server
     #[serde(default = "default_host")]
     pub host: String,
@@ -84,6 +89,8 @@ impl Config {
                             .map(|p| expand_tilde(&p.to_string_lossy()));
                         config.codex_sessions_dir = config.codex_sessions_dir
                             .map(|p| expand_tilde(&p.to_string_lossy()));
+                        config.opencode_storage_dir = config.opencode_storage_dir
+                            .map(|p| expand_tilde(&p.to_string_lossy()));
                         config
                     }
                     Err(e) => {
@@ -106,6 +113,7 @@ impl Config {
             claude_projects_dir: default_claude_dir(),
             pi_jsonl_dir: None,
             codex_sessions_dir: None,
+            opencode_storage_dir: None,
             host: default_host(),
             port: default_port(),
         };

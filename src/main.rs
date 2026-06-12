@@ -128,6 +128,29 @@ async fn main() -> Result<()> {
                 }
             }
 
+            // Also import the latest opencode session, if configured.
+            if let Some(ref opencode_dir) = cfg.opencode_storage_dir {
+                match parser::find_latest_opencode_session(opencode_dir) {
+                    Ok(Some(opencode_path)) => {
+                        for db_path in cfg.effective_db_paths() {
+                            let db = db::Db::open(db_path)?;
+                            match parser::import_opencode_session(&db, &opencode_path) {
+                                Ok(true) => {
+                                    println!("Imported opencode session to {}: {}", db_path.display(), opencode_path.display());
+                                    any_imported = true;
+                                }
+                                Ok(false) => {}
+                                Err(e) => {
+                                    eprintln!("Error importing opencode session: {}", e);
+                                }
+                            }
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => eprintln!("Warning: could not search opencode sessions: {}", e),
+                }
+            }
+
             if !any_imported {
                 println!("No new data imported.");
             }
@@ -207,20 +230,28 @@ async fn main() -> Result<()> {
                 Vec::new()
             };
 
-            if claude_entries.is_empty() && pi_entries.is_empty() && codex_entries.is_empty() {
+            let opencode_entries: Vec<_> = if let Some(ref opencode_dir) = cfg.opencode_storage_dir {
+                parser::list_opencode_session_files(opencode_dir)?
+            } else {
+                Vec::new()
+            };
+
+            if claude_entries.is_empty() && pi_entries.is_empty() && codex_entries.is_empty() && opencode_entries.is_empty() {
                 match project_dir.as_ref() {
                     Some(dir) => anyhow::bail!(
-                        "no session files found for {:?} (checked Claude: {:?}, pi: {:?}, codex: {:?})",
+                        "no session files found for {:?} (checked Claude: {:?}, pi: {:?}, codex: {:?}, opencode: {:?})",
                         dir,
                         cfg.claude_projects_dir.join(config::Config::project_dir_name(dir)),
                         cfg.pi_jsonl_dir,
                         cfg.codex_sessions_dir,
+                        cfg.opencode_storage_dir,
                     ),
                     None => anyhow::bail!(
-                        "no session files found (checked Claude: {:?}, pi: {:?}, codex: {:?})",
+                        "no session files found (checked Claude: {:?}, pi: {:?}, codex: {:?}, opencode: {:?})",
                         cfg.claude_projects_dir,
                         cfg.pi_jsonl_dir,
                         cfg.codex_sessions_dir,
+                        cfg.opencode_storage_dir,
                     ),
                 }
             }
@@ -278,6 +309,23 @@ async fn main() -> Result<()> {
                         Ok(false) => {}
                         Err(e) => {
                             eprintln!("Error importing codex session {} to {}: {}", path.display(), db_path.display(), e);
+                        }
+                    }
+                }
+                if imported_to_any { count += 1; }
+            }
+
+            for path in &opencode_entries {
+                let mut imported_to_any = false;
+                for (db_path, db) in &dbs {
+                    match parser::import_opencode_session(db, path) {
+                        Ok(true) => {
+                            println!("Imported opencode session to {}: {}", db_path.display(), path.display());
+                            imported_to_any = true;
+                        }
+                        Ok(false) => {}
+                        Err(e) => {
+                            eprintln!("Error importing opencode session {} to {}: {}", path.display(), db_path.display(), e);
                         }
                     }
                 }

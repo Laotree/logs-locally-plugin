@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## [0.10.0] — 2026-06-12
+
+### Added
+- **opencode session support.** New optional config field `opencodeStorageDir` (e.g. `~/.local/share/opencode/storage`). When set, `llp import` also imports the latest opencode session and `llp import-all` imports every opencode session across all projects. Verified against opencode v1.14.x storage (session info under `storage/session/<projectID>/`, message metadata under `storage/message/<sessionID>/`, content parts under `storage/part/<messageID>/`). Sessions are stored with `source = 'opencode'` and include title, working directory, model, token counts, thinking blocks, and tool calls/results.
+- Web UI: opencode source badge and an "opencode" option in the Sessions source filter.
+
+### Changed
+- Docs (README + homepage) updated to cover all four supported sources (Claude Code, Pi agent, Codex CLI, opencode); fixed the duplicated step numbering in the README "How It Works" list.
+
 ## [0.9.1] — 2026-06-04
 
 ### Changed
