@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.10.2] — 2026-06-12
+
+### Changed
+- **Web UI: Claude Code slash-command messages render legibly** (#85). User messages carrying `<command-name>` / `<command-args>` markup now display as an accent command chip (e.g. `❯ /goal args`) instead of raw escaped tags; `<local-command-stdout>` renders as a labelled preformatted block with ANSI escape codes stripped; `<system-reminder>` blocks collapse into a dimmed expandable section. Messages without these tags are unaffected.
+
 ## [0.10.1] — 2026-06-12
 
 ### Changed
