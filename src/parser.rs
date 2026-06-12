@@ -736,3 +736,379 @@ pub fn import_codex_session(db: &crate::db::Db, jsonl_path: &Path) -> Result<boo
     }
     Ok(imported)
 }
+
+// ─── opencode session support ─────────────────────────────────────────────────
+//
+// opencode (v1.x) splits a session across three storage subdirectories:
+//   storage/session/<projectID>/<sessionID>.json   — session info (title, directory, times)
+//   storage/message/<sessionID>/<messageID>.json   — message metadata (role, times, tokens)
+//   storage/part/<messageID>/<partID>.json         — content parts (text, reasoning, tool)
+// Timestamps are epoch milliseconds.
+
+fn epoch_ms_to_iso(ms: i64) -> Option<String> {
+    chrono::DateTime::from_timestamp_millis(ms).map(|dt| dt.to_rfc3339())
+}
+
+/// Find the most recently modified opencode session info JSON across all projects.
+pub fn find_latest_opencode_session(storage_dir: &Path) -> Result<Option<std::path::PathBuf>> {
+    let mut latest: Option<(std::path::PathBuf, SystemTime)> = None;
+    for path in list_opencode_session_files(storage_dir)? {
+        let modified = std::fs::metadata(&path)
+            .and_then(|m| m.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+        match &latest {
+            Some((_, t)) if modified <= *t => {}
+            _ => latest = Some((path, modified)),
+        }
+    }
+    Ok(latest.map(|(p, _)| p))
+}
+
+/// List all opencode session info JSONs across every project, sorted by path.
+pub fn list_opencode_session_files(storage_dir: &Path) -> Result<Vec<std::path::PathBuf>> {
+    let sessions_dir = storage_dir.join("session");
+    if !sessions_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut files = Vec::new();
+    for project in std::fs::read_dir(&sessions_dir)
+        .context("reading opencode session dir")?
+        .filter_map(|e| e.ok())
+    {
+        let project_path = project.path();
+        if !project_path.is_dir() {
+            continue;
+        }
+        for session in std::fs::read_dir(&project_path)
+            .context("reading opencode project session dir")?
+            .filter_map(|e| e.ok())
+        {
+            let path = session.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                files.push(path);
+            }
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+/// Parse an opencode session from its session info JSON into a `Session` + messages.
+/// `info_path` is `<storage>/session/<projectID>/<sessionID>.json`; messages and
+/// parts are read from the sibling `message/` and `part/` directories.
+pub fn parse_opencode_session_file(info_path: &Path) -> Result<(Session, Vec<Message>)> {
+    let info: Value = serde_json::from_str(
+        &std::fs::read_to_string(info_path).with_context(|| format!("reading {:?}", info_path))?,
+    )
+    .with_context(|| format!("parsing {:?}", info_path))?;
+
+    let storage_dir = info_path
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .context("resolving opencode storage dir from session path")?;
+
+    let session_id = info["id"]
+        .as_str()
+        .map(|s| s.to_string())
+        .or_else(|| info_path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_string()))
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let mut session = Session {
+        id: session_id.clone(),
+        title: info["title"].as_str().map(|s| scrub_sensitive(s)),
+        model: None,
+        created_at: info["time"]["created"]
+            .as_i64()
+            .and_then(epoch_ms_to_iso)
+            .unwrap_or_else(iso_now),
+        updated_at: info["time"]["updated"]
+            .as_i64()
+            .and_then(epoch_ms_to_iso)
+            .unwrap_or_else(iso_now),
+        message_count: 0,
+        token_count: 0,
+        cwd: info["directory"].as_str().map(|s| scrub_sensitive(s)),
+        git_branch: None,
+        version: info["version"].as_str().map(|s| s.to_string()),
+        source: "opencode".to_string(),
+    };
+
+    let mut messages: Vec<Message> = Vec::new();
+    let messages_dir = storage_dir.join("message").join(&session_id);
+
+    let mut msg_files: Vec<std::path::PathBuf> = match std::fs::read_dir(&messages_dir) {
+        Ok(entries) => entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+    // Message IDs are monotonic, so name order is chronological.
+    msg_files.sort();
+
+    for msg_path in &msg_files {
+        let Ok(content) = std::fs::read_to_string(msg_path) else { continue };
+        let Ok(msg) = serde_json::from_str::<Value>(&content) else { continue };
+
+        let id = msg["id"].as_str().unwrap_or("").to_string();
+        if id.is_empty() {
+            continue;
+        }
+        let role = msg["role"].as_str().unwrap_or("").to_string();
+        let created_at = msg["time"]["created"]
+            .as_i64()
+            .and_then(epoch_ms_to_iso)
+            .unwrap_or_default();
+        let parent_id = msg["parentID"].as_str().map(|s| s.to_string());
+        let model = msg["modelID"].as_str().map(|s| s.to_string());
+        let token_count = msg["tokens"]["input"].as_i64().unwrap_or(0)
+            + msg["tokens"]["output"].as_i64().unwrap_or(0);
+
+        if role == "assistant" {
+            if let Some(ref m) = model {
+                session.model = Some(m.clone());
+            }
+        }
+
+        let content = scrub_sensitive(&read_opencode_parts(storage_dir, &id));
+
+        messages.push(Message {
+            id,
+            session_id: session.id.clone(),
+            role,
+            content,
+            created_at,
+            token_count,
+            parent_id,
+            model,
+        });
+    }
+
+    // Title fallback: first line of the first user message.
+    if session.title.as_deref().is_none_or(|t| t.is_empty()) {
+        if let Some(user_msg) = messages.iter().find(|m| m.role == "user") {
+            let first_line = user_msg.content.lines().next().unwrap_or("").trim();
+            if !first_line.is_empty() {
+                let title = if first_line.chars().count() > 60 {
+                    let truncated: String = first_line.chars().take(60).collect();
+                    format!("{}…", truncated)
+                } else {
+                    first_line.to_string()
+                };
+                session.title = Some(title);
+            }
+        }
+    }
+
+    session.message_count = messages.len() as i64;
+    session.token_count = messages.iter().map(|m| m.token_count).sum();
+
+    Ok((session, messages))
+}
+
+/// Read and join the content parts of an opencode message.
+fn read_opencode_parts(storage_dir: &Path, message_id: &str) -> String {
+    let parts_dir = storage_dir.join("part").join(message_id);
+    let mut part_files: Vec<std::path::PathBuf> = match std::fs::read_dir(&parts_dir) {
+        Ok(entries) => entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("json"))
+            .collect(),
+        Err(_) => return String::new(),
+    };
+    part_files.sort();
+
+    let mut parts: Vec<String> = Vec::new();
+    for part_path in &part_files {
+        let Ok(content) = std::fs::read_to_string(part_path) else { continue };
+        let Ok(part) = serde_json::from_str::<Value>(&content) else { continue };
+
+        match part["type"].as_str().unwrap_or("") {
+            "text" => {
+                let text = part["text"].as_str().unwrap_or("").trim();
+                if !text.is_empty() {
+                    parts.push(text.to_string());
+                }
+            }
+            "reasoning" => {
+                let text = part["text"].as_str().unwrap_or("").trim();
+                if !text.is_empty() {
+                    parts.push(format!("[thinking]{}[/thinking]", text));
+                }
+            }
+            "tool" => {
+                let name = part["tool"].as_str().unwrap_or("unknown");
+                if let Some(input) = part["state"]["input"].as_object() {
+                    parts.push(format!(
+                        "[tool: {}]\n{}[/tool]",
+                        name,
+                        serde_json::to_string_pretty(input).unwrap_or_default()
+                    ));
+                } else {
+                    parts.push(format!("[tool: {}]", name));
+                }
+                let output = part["state"]["output"].as_str().unwrap_or("").trim();
+                if !output.is_empty() {
+                    parts.push(format!("[tool_result]\n{}[/tool_result]", output));
+                }
+            }
+            _ => {}
+        }
+    }
+    parts.join("\n\n")
+}
+
+/// Import an opencode session into the database, scoring it on success.
+pub fn import_opencode_session(db: &crate::db::Db, info_path: &Path) -> Result<bool> {
+    let (session, messages) = parse_opencode_session_file(info_path)?;
+    let imported = db.import_session(&session, &messages)?;
+    if imported {
+        if let Some(score) = crate::scorer::score_session(&session, &messages) {
+            db.upsert_score(&score).context("storing opencode session score")?;
+        }
+    }
+    Ok(imported)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build a minimal opencode storage tree in a unique temp dir.
+    fn write_opencode_fixture() -> std::path::PathBuf {
+        let storage = std::env::temp_dir().join(format!(
+            "llp-opencode-test-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let sid = "ses_test0001";
+        let session_dir = storage.join("session").join("proj1");
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join(format!("{}.json", sid)),
+            r#"{
+              "id": "ses_test0001",
+              "version": "1.14.50",
+              "projectID": "proj1",
+              "directory": "/tmp/myproject",
+              "title": "Fix the build",
+              "time": { "created": 1770362255662, "updated": 1770362387759 }
+            }"#,
+        )
+        .unwrap();
+
+        let msg_dir = storage.join("message").join(sid);
+        std::fs::create_dir_all(&msg_dir).unwrap();
+        std::fs::write(
+            msg_dir.join("msg_a.json"),
+            r#"{
+              "id": "msg_a",
+              "sessionID": "ses_test0001",
+              "role": "user",
+              "time": { "created": 1770362255676 }
+            }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            msg_dir.join("msg_b.json"),
+            r#"{
+              "id": "msg_b",
+              "sessionID": "ses_test0001",
+              "role": "assistant",
+              "parentID": "msg_a",
+              "modelID": "big-pickle",
+              "providerID": "opencode",
+              "time": { "created": 1770362255688, "completed": 1770362260790 },
+              "tokens": { "input": 100, "output": 50, "reasoning": 1, "cache": { "read": 0, "write": 0 } }
+            }"#,
+        )
+        .unwrap();
+
+        let part_a = storage.join("part").join("msg_a");
+        std::fs::create_dir_all(&part_a).unwrap();
+        std::fs::write(
+            part_a.join("prt_1.json"),
+            r#"{ "id": "prt_1", "messageID": "msg_a", "type": "text", "text": "please fix the build" }"#,
+        )
+        .unwrap();
+
+        let part_b = storage.join("part").join("msg_b");
+        std::fs::create_dir_all(&part_b).unwrap();
+        std::fs::write(
+            part_b.join("prt_2.json"),
+            r#"{ "id": "prt_2", "messageID": "msg_b", "type": "step-start", "snapshot": "abc" }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            part_b.join("prt_3.json"),
+            r#"{ "id": "prt_3", "messageID": "msg_b", "type": "reasoning", "text": "look at the Makefile" }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            part_b.join("prt_4.json"),
+            r#"{ "id": "prt_4", "messageID": "msg_b", "type": "tool", "callID": "c1", "tool": "bash",
+                 "state": { "status": "completed", "input": { "command": "make" }, "output": "ok" } }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            part_b.join("prt_5.json"),
+            r#"{ "id": "prt_5", "messageID": "msg_b", "type": "text", "text": "Done, the build passes." }"#,
+        )
+        .unwrap();
+
+        storage
+    }
+
+    #[test]
+    fn parses_opencode_session() {
+        let storage = write_opencode_fixture();
+        let info_path = storage.join("session").join("proj1").join("ses_test0001.json");
+
+        let (session, messages) = parse_opencode_session_file(&info_path).unwrap();
+
+        assert_eq!(session.id, "ses_test0001");
+        assert_eq!(session.source, "opencode");
+        assert_eq!(session.title.as_deref(), Some("Fix the build"));
+        assert_eq!(session.cwd.as_deref(), Some("/tmp/myproject"));
+        assert_eq!(session.version.as_deref(), Some("1.14.50"));
+        assert_eq!(session.model.as_deref(), Some("big-pickle"));
+        assert_eq!(session.message_count, 2);
+        assert_eq!(session.token_count, 150);
+        assert!(session.created_at.starts_with("2026-"));
+
+        assert_eq!(messages[0].role, "user");
+        assert_eq!(messages[0].content, "please fix the build");
+        assert_eq!(messages[1].role, "assistant");
+        assert_eq!(messages[1].parent_id.as_deref(), Some("msg_a"));
+        assert_eq!(messages[1].token_count, 150);
+        assert!(messages[1].content.contains("[thinking]look at the Makefile[/thinking]"));
+        assert!(messages[1].content.contains("[tool: bash]"));
+        assert!(messages[1].content.contains("[tool_result]\nok[/tool_result]"));
+        assert!(messages[1].content.contains("Done, the build passes."));
+        assert!(!messages[1].content.contains("step-start"));
+
+        std::fs::remove_dir_all(&storage).ok();
+    }
+
+    #[test]
+    fn lists_and_finds_opencode_sessions() {
+        let storage = write_opencode_fixture();
+
+        let files = list_opencode_session_files(&storage).unwrap();
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("ses_test0001.json"));
+
+        let latest = find_latest_opencode_session(&storage).unwrap();
+        assert_eq!(latest, Some(files[0].clone()));
+
+        // A missing storage dir yields empty results, not an error.
+        let missing = storage.join("does-not-exist");
+        assert!(list_opencode_session_files(&missing).unwrap().is_empty());
+        assert!(find_latest_opencode_session(&missing).unwrap().is_none());
+
+        std::fs::remove_dir_all(&storage).ok();
+    }
+}

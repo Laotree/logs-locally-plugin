@@ -184,6 +184,7 @@
   .llp-src.claude { background: color-mix(in oklch, var(--accent) 12%, transparent); color: var(--accent-d); }
   .llp-src.pi { background: color-mix(in oklch, var(--accent-2) 12%, transparent); color: var(--accent-2d); }
   .llp-src.codex { background: color-mix(in oklch, #22c55e 12%, transparent); color: #15803d; }
+  .llp-src.opencode { background: color-mix(in oklch, #6366f1 12%, transparent); color: #4338ca; }
 
   /* ── Contribution Heatmap ────────────────────────────────── */
   .llp-hm-dot { width: 9px; height: 9px; border-radius: 50%; }
@@ -451,7 +452,7 @@ function GradeBadge(grade, size) {
 /* ── Source Badge ───────────────────────────────────────────── */
 function SourceBadge(source) {
   const s = source || 'claude';
-  const cls = ['claude', 'pi', 'codex'].includes(s) ? s : 'claude';
+  const cls = ['claude', 'pi', 'codex', 'opencode'].includes(s) ? s : 'claude';
   return `<span class="llp-src ${cls}">${s}</span>`;
 }
 
@@ -935,7 +936,7 @@ let svAllModels = null;
 function renderSessionsHtml(sessions, scoresMap) {
   const filtered = sessions;
   const filterGroups = [
-    { key:'src', label:'Source', value:svFilters.src, opts:[['all','All'],['claude','Claude Code'],['pi','Pi Agent'],['codex','Codex CLI']] },
+    { key:'src', label:'Source', value:svFilters.src, opts:[['all','All'],['claude','Claude Code'],['pi','Pi Agent'],['codex','Codex CLI'],['opencode','opencode']] },
     { key:'model', label:'Model', value:svFilters.model, opts:[['all','All'],...(svAllModels||[]).map(m=>[m,m])] },
     { key:'grade', label:'Grade', value:svFilters.grade, opts:[['all','All'],['S','S'],['A','A'],['B','B'],['C','C'],['D','D'],['F','F']] },
   ];
