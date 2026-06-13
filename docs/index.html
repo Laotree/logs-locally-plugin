@@ -8,7 +8,16 @@
   :root { --bg: #0a0a0a; --surface: #121212; --border: #232323; --text: #e5e5e5; --text-dim: #666; --text-muted: #888; --accent: #f5a623; --accent-glow: rgba(245, 166, 35, 0.15); --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
-  body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .eyebrow { display: flex; align-items: center; gap: 10px; font-family: "SF Mono", "JetBrains Mono", monospace; font-size: 12px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 14px; }
+  .eyebrow::before { content: ''; width: 18px; height: 1px; background: var(--accent); }
 
   nav { position: fixed; top: 0; width: 100%; padding: 16px 40px; display: flex; align-items: center; justify-content: space-between; background: rgba(10,10,10,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); z-index: 100; }
   nav .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
@@ -18,7 +27,7 @@
   nav .links a:hover { color: var(--text); }
 
   .hero { padding: 140px 40px 80px; max-width: 900px; margin: 0 auto; text-align: center; }
-  .hero .badge { display: inline-block; padding: 4px 12px; border-radius: 100px; font-size: 12px; background: var(--accent-glow); color: var(--accent); margin-bottom: 20px; border: 1px solid rgba(245,166,35,0.2); }
+  .hero .badge { display: inline-block; padding: 4px 12px; border-radius: 100px; font-size: 12px; font-family: "SF Mono", "JetBrains Mono", monospace; letter-spacing: 0.1em; text-transform: uppercase; background: var(--accent-glow); color: var(--accent); margin-bottom: 20px; border: 1px solid rgba(245,166,35,0.2); }
   .hero h1 { font-size: 52px; font-weight: 700; letter-spacing: -1.5px; margin-bottom: 16px; line-height: 1.1; }
   .hero h1 span { color: var(--accent); }
   .hero p { font-size: 18px; color: var(--text-muted); max-width: 600px; margin: 0 auto 32px; }
@@ -150,6 +159,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
 </div>
 
 <section id="features">
+  <div class="eyebrow">01 · Features</div>
   <h2>What you <span>get</span></h2>
   <p>Every session is automatically saved and indexed — ready to search, browse, and analyze.</p>
   <div class="features">
@@ -192,6 +202,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
 </section>
 
 <section id="demo">
+  <div class="eyebrow">02 · Demo</div>
   <h2>See it in <span>action</span></h2>
   <p>A live terminal walkthrough: install, import sessions, serve the UI, and browse your history.</p>
   <div class="demo-player">
@@ -200,6 +211,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
 </section>
 
 <section id="install">
+  <div class="eyebrow">03 · Install</div>
   <h2>Install <span>in seconds</span></h2>
   <p>Works with Claude Code, Pi agent, and Codex CLI. Choose your path.</p>
   <div class="steps">
@@ -243,6 +255,7 @@ Done. Scored: 72, Trivial (N/A): 12.</span></pre>
 </section>
 
 <section id="usage">
+  <div class="eyebrow">04 · Usage</div>
   <h2>Web UI <span>preview</span></h2>
   <p>A dark-themed log browser for browsing your agent sessions.</p>
   <div class="screenshot">

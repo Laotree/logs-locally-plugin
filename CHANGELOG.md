@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [0.10.3] — 2026-06-13
+
+### Changed
+- **Landing page (`docs/index.html`) refreshed** with a subtle background grid texture and numbered monospace "system label" eyebrows above each section heading, for a more technical look. Hero badge restyled to match (monospace, uppercase).
+- **Dashboard sidebar nav section labels** now carry a small accent-colored tick, echoing the landing page's new eyebrow style.
+
 ## [0.9.1] — 2026-06-04
 
 ### Changed
