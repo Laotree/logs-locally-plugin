@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.10.3] — 2026-06-13
+
+### Changed
+- **Landing page (`docs/index.html`) refreshed** with a subtle background grid texture and numbered monospace "system label" eyebrows above each section heading. Hero badge restyled to match (monospace, uppercase).
+
 ## [0.10.2] — 2026-06-12
 
 ### Changed
