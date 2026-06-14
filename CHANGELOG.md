@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.11.0] — 2026-06-14
+
+### Added
+- **Web UI: session activity timeline** (#89). New "Session Timeline" panel on the session detail page renders a horizontal activity bar with one dot per message, positioned by timestamp and colored by role (user/assistant/tool), with start/end times, total duration, and a legend. Clicking a dot scrolls the conversation thread to and briefly highlights the corresponding message.
+
 ## [0.10.3] — 2026-06-13
 
 ### Changed
