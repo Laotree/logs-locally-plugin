@@ -39,6 +39,7 @@ pub fn router(db: Db) -> Router {
         .route("/api/stats", get(get_stats))
         .route("/api/score-stats", get(get_score_stats))
         .route("/api/activity", get(get_activity))
+        .route("/api/usage", get(get_usage))
         .with_state(state)
 }
 
@@ -211,4 +212,32 @@ async fn get_activity(
         )
             .into_response(),
     }
+}
+
+/// Token totals for the rolling 5-hour and 7-day quota windows.
+///
+/// Anthropic publishes no numeric limits, so the client compares these
+/// totals against its own estimated per-plan thresholds.
+async fn get_usage(State(state): State<AppState>) -> impl IntoResponse {
+    let mut body = serde_json::Map::new();
+    for (key, hours) in [("five_hour", 5i64), ("weekly", 7 * 24)] {
+        let start = chrono::Utc::now() - chrono::Duration::hours(hours);
+        match state
+            .db
+            .get_token_usage_since(&start.to_rfc3339())
+            .map(|used| serde_json::json!({ "used": used, "window_start": start.to_rfc3339() }))
+        {
+            Ok(window) => {
+                body.insert(key.to_string(), window);
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": e.to_string() })),
+                )
+                    .into_response()
+            }
+        }
+    }
+    Json(serde_json::Value::Object(body)).into_response()
 }

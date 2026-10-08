@@ -83,12 +83,19 @@ pub fn parse_session_file(path: &Path) -> Result<(Session, Vec<Message>)> {
                         session.model = Some(m.clone());
                     }
 
-                    let token_count = msg["usage"]["input_tokens"]
-                        .as_i64()
-                        .unwrap_or(0)
-                        + msg["usage"]["output_tokens"]
-                            .as_i64()
-                            .unwrap_or(0);
+                    // Cache reads and writes dominate the real spend on a Claude
+                    // plan, so they count toward the totals the dashboard reports.
+                    // Fields absent from older log formats contribute zero.
+                    let usage = &msg["usage"];
+                    let token_count: i64 = [
+                        "input_tokens",
+                        "output_tokens",
+                        "cache_creation_input_tokens",
+                        "cache_read_input_tokens",
+                    ]
+                    .iter()
+                    .map(|field| usage[*field].as_i64().unwrap_or(0))
+                    .sum();
 
                     let msg_obj = Message {
                         id: uuid,
@@ -1110,5 +1117,49 @@ mod tests {
         assert!(find_latest_opencode_session(&missing).unwrap().is_none());
 
         std::fs::remove_dir_all(&storage).ok();
+    }
+
+    /// Write a Claude Code session file with a single assistant turn.
+    fn write_claude_fixture(usage: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "llp-claude-test-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("ses_test0002.jsonl");
+        std::fs::write(
+            &path,
+            format!(
+                r#"{{"type":"assistant","uuid":"m1","sessionId":"s1","timestamp":"2026-10-08T09:00:00.000Z","message":{{"role":"assistant","model":"claude-opus-5-5","content":[{{"type":"text","text":"hi"}}],"usage":{usage}}}}}"#
+            ),
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn counts_cache_tokens_toward_message_totals() {
+        let path = write_claude_fixture(
+            r#"{"input_tokens":10,"output_tokens":20,"cache_creation_input_tokens":30,"cache_read_input_tokens":40}"#,
+        );
+
+        let (session, messages) = parse_session_file(&path).unwrap();
+
+        assert_eq!(messages[0].token_count, 100);
+        assert_eq!(session.token_count, 100);
+
+        std::fs::remove_dir_all(path.parent().unwrap()).ok();
+    }
+
+    #[test]
+    fn tolerates_usage_without_cache_fields() {
+        let path = write_claude_fixture(r#"{"input_tokens":10,"output_tokens":20}"#);
+
+        let (_, messages) = parse_session_file(&path).unwrap();
+
+        assert_eq!(messages[0].token_count, 30);
+
+        std::fs::remove_dir_all(path.parent().unwrap()).ok();
     }
 }
