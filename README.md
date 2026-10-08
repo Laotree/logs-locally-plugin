@@ -42,6 +42,7 @@ That's it. No daemon, no cloud, no API key.
 
 - **Full session history** — every Claude Code, Pi agent, Codex CLI, and opencode session stored in SQLite
 - **Searchable web UI** — filter by model, time, keyword, or quality score
+- **Plan usage at a glance** — rolling 5-hour and weekly token totals against a Pro / Max budget
 - **Automatic quality scoring** — 7 dimensions (security, efficiency, planning…) with letter grades
 - **Privacy-first** — API keys, tokens, and email addresses are scrubbed before storage; nothing leaves your machine
 
@@ -182,12 +183,13 @@ llp serve --port 9090   # override port
 
 Features:
 - Session list with search and filters (by model, source, time range, keyword)
-- Message detail view with thinking blocks and tool calls
+- Message detail view with collapsible thinking, tool call, and tool result blocks
 - Session scoring (7 quality dimensions with letter grades S/A/B/C/D/F)
 - **Multi-agent support** — browse Claude Code, Pi agent, Codex CLI, and opencode sessions in one UI
+- **Plan usage bars** — estimated 5-hour and weekly token usage against a Pro / Max 5x / Max 20x budget
 - Live auto-refresh (10s polling)
 - Statistics dashboard (token usage by model, score aggregates)
-- Dark theme, Claude web-inspired design
+- Light and dark themes, warm near-black surfaces with an amber accent
 
 ### Re-score sessions
 
@@ -269,7 +271,7 @@ CREATE TABLE messages (
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    token_count INTEGER DEFAULT 0,
+    token_count INTEGER DEFAULT 0,  -- claude: input + output + cache read + cache write
     parent_id TEXT,
     model TEXT
 );
