@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [0.12.0] — 2026-10-08
+
+### Added
+- **Web UI: estimated plan usage bars** (#92). The sidebar carries a token bar for a rolling 5-hour window and another for a rolling 7-day window, with a Pro / Max 5x / Max 20x selector that persists in `localStorage`. Token totals now count cache reads and writes alongside input and output, since cache dominates the real cost of a plan. The thresholds are community estimates — Anthropic publishes no numeric quota, it meters compute and time — and the card says so on screen. Sessions imported before this change keep their old input-plus-output totals: `import_session` deduplicates on session id with no way to refresh an existing session, so a database rebuild is needed for history to read accurately.
+
+### Changed
+- **Web UI: warm near-black and amber palette** (#91). Both themes move off the cyan-on-navy blueprint treatment to warm neutrals with a single amber accent, matching the published landing page. The backdrop grid and the three ambient glow fields are gone. The light theme darkens the accent for contrast on white. Grade colours are unchanged. The heatmap keeps its empty-cell colour (`--grid-0`), which is a data value rather than decoration. CSS variables only — no layout or JavaScript changes.
+
+### Fixed
+- **Web UI: thread markers render as collapsible blocks** (#93). Thinking, tool calls and tool results were encoded by the parser but printed as raw text, so users saw literal `[tool_result]` lines. They now render as collapsible blocks, and user messages go through the same parser — they carry most of the tool results. A block body stops at the next marker rather than the next closing tag: previously a tool with no input was read as an opening tag and consumed everything up to the following tool's closing tag, so that tool disappeared from the thread. The dead tool-role render branch is removed; no import path emits that role.
+
 ## [0.11.0] — 2026-06-14
 
 ### Added
