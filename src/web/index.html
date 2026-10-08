@@ -407,12 +407,14 @@
   .thinking { margin-bottom: 10px; padding: 8px 12px; background: var(--bg-sunk); border-left: 2px solid var(--ink-3); border-radius: 4px; font-size: 13px; line-height: 1.6; color: var(--ink-2); font-style: italic; }
   .thinking-toggle { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--ink-3); cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
   .thinking-toggle:hover { color: var(--accent); }
+  .tool-block { margin-bottom: 10px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .tool-block:last-child { margin-bottom: 0; }
   .tool-header { padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid transparent; }
   .tool-header.open { border-bottom-color: var(--line); }
   .tool-header:hover { background: var(--bg-sunk); }
   .tool-name { font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--accent-2); font-weight: 600; }
-  .tool-args { font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: var(--ink-2); flex: 1; }
-  .tool-result { padding: 8px 12px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: var(--ink-1); background: var(--bg-sunk); line-height: 1.6; }
+  .tool-args { font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: var(--ink-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tool-result { padding: 8px 12px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: var(--ink-1); background: var(--bg-sunk); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 
   /* ── Command messages ───────────────────────────────────── */
   .cmd-chip { display: inline-flex; align-items: center; gap: 7px; font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 8%, transparent); }
@@ -503,6 +505,7 @@ const fmtNum = (n) => {
 const fmtMonth = (d) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
 const escHtml = (s) => { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
 const stripAnsi = (s) => String(s).replace(/\u001b\[[0-9;]*m/g, '');
+const fmt = (t) => t.replace(/\*\*([^*]+)\*\*/g,'<b style="color:var(--ink-0)">$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
 
 /* Parse Claude Code slash-command markup (<command-name>, <command-args>,
    <local-command-stdout>, <system-reminder>) out of a message body.
@@ -523,6 +526,69 @@ function parseCommandContent(content) {
     .replace(/<system-reminder>([\s\S]*?)<\/system-reminder>/g, (_, b) => { reminders.push(b.trim()); return ''; })
     .trim();
   return { name, args, stdout: stdout !== null ? stripAnsi(stdout) : null, reminders, rest };
+}
+
+/* Parse [thinking]...[/thinking], [tool: NAME]\n{input}[/tool] (or [tool: NAME]
+   with no input), and [tool_result]\n...[/tool_result] markers embedded in
+   message content by the parser into a sequence of typed blocks.
+
+   Each body stops at the next marker rather than at the next closing tag, so
+   an unterminated block cannot swallow the ones that follow it. A tool
+   without input is otherwise read as an opening tag and consumes everything
+   up to the following tool's closing tag. */
+function parseContentBlocks(content) {
+  const c = String(content || '');
+  const re = /\[thinking\]((?:(?!\[thinking|\[tool:|\[tool_result\])[\s\S])*?)\[\/thinking\]|\[tool: ([^\]\n]+)\]\n((?:(?!\[tool:|\[tool_result\])[\s\S])*?)\[\/tool\]|\[tool: ([^\]\n]+)\]|\[tool_result\]\n((?:(?!\[tool:|\[tool_result\])[\s\S])*?)\[\/tool_result\]/g;
+  const blocks = [];
+  let last = 0;
+  let m;
+  while ((m = re.exec(c)) !== null) {
+    if (m.index > last) blocks.push({ type: 'text', text: c.slice(last, m.index) });
+    if (m[1] !== undefined) blocks.push({ type: 'thinking', text: m[1] });
+    else if (m[2] !== undefined) blocks.push({ type: 'tool', name: m[2], input: m[3] });
+    else if (m[4] !== undefined) blocks.push({ type: 'tool', name: m[4], input: null });
+    else blocks.push({ type: 'tool_result', text: m[5] });
+    last = re.lastIndex;
+  }
+  if (last < c.length) blocks.push({ type: 'text', text: c.slice(last) });
+  if (blocks.length === 0) blocks.push({ type: 'text', text: c });
+  return blocks;
+}
+
+/* Render parsed content blocks. Thinking blocks and tool calls/results render
+   as collapsible chips (state keyed by "${msgIdx}-${blockIdx}" in openThinking
+   / openTool), plain text renders as a normal message body. */
+function renderContentBlocks(blocks, msgIdx) {
+  return blocks.map((b, bi) => {
+    const key = msgIdx + '-' + bi;
+    if (b.type === 'text') {
+      const t = b.text.trim();
+      return t ? `<div class="msg-body">${fmt(escHtml(t))}</div>` : '';
+    }
+    if (b.type === 'thinking') {
+      const open = !!openThinking[key];
+      return `<button class="thinking-toggle" onclick="toggleThinking('${key}')"><span>${open?'▾':'▸'}</span><span>Thinking</span></button>${open?`<div class="thinking">${fmt(escHtml(b.text.trim()))}</div>`:''}`;
+    }
+    if (b.type === 'tool') {
+      const open = !!openTool[key];
+      const preview = b.input ? escHtml(b.input.replace(/\s+/g,' ').trim().slice(0,72)) : '';
+      const resultBody = b.input ? escHtml(b.input) : '<span style="opacity:.6">(no arguments)</span>';
+      return `<div class="tool-block"><div class="tool-header ${open?'open':''}" onclick="toggleTool('${key}')">
+        <span class="cmd-glyph">❯</span>
+        <span class="tool-name">${escHtml(b.name)}</span>
+        ${preview ? `<span class="tool-args">${preview}</span>` : ''}
+        <span style="margin-left:auto;color:var(--ink-3);font-family:'JetBrains Mono',monospace;font-size:12px">${open?'▾':'▸'} details</span>
+      </div>${open?`<div class="tool-result">${resultBody}</div>`:''}</div>`;
+    }
+    // tool_result
+    const open = !!openTool[key];
+    const text = b.text.trim();
+    return `<div class="tool-block"><div class="tool-header ${open?'open':''}" onclick="toggleTool('${key}')">
+      <span class="cmd-glyph">❯</span>
+      <span class="tool-name">Tool result</span>
+      <span style="margin-left:auto;color:var(--ink-3);font-family:'JetBrains Mono',monospace;font-size:12px">${open?'▾':'▸'} details</span>
+    </div>${open?`<div class="tool-result">${escHtml(text.slice(0,4000))}${text.length>4000?'\n…(truncated)':''}</div>`:''}</div>`;
+  }).join('');
 }
 
 /* ── API ────────────────────────────────────────────────────── */
@@ -1152,7 +1218,6 @@ function renderDetailHtml(s, msgs) {
   const dims = sc ? scoreToDims(sc) : null;
   const grade = sc ? sc.grade : 'N/A';
   const scoreVal = sc ? sc.total_score : null;
-  const fmt = (t) => t.replace(/\*\*([^*]+)\*\*/g,'<b style="color:var(--ink-0)">$1</b>').replace(/\`([^\`]+)\`/g,'<code>$1</code>');
   return `<div class="sd">
     <button class="sd-back" onclick="setView('sessions')">← BACK TO SESSIONS</button>
     <div class="sd-head">
@@ -1178,30 +1243,20 @@ function renderDetailHtml(s, msgs) {
         ${Panel('Conversation Thread', msgs.length+' messages', '',
           msgs.length > 0
             ? `<div class="sd-thread">${msgs.map((m,i)=>{
-              const avCls = m.role==='user'?'user':m.role==='assistant'?'assistant':'tool';
-              const avLbl = m.role==='user'?'U':m.role==='assistant'?'A':'T';
-              if(m.role==='tool') {
-                return `<div class="msg" id="msg-${i}"><div class="msg-avatar tool">${avLbl}</div><div class="msg-bubble tool">
-                  <div class="tool-header ${openTool[i]?'open':''}" onclick="toggleTool(${i})">
-                    <span style="color:var(--ink-3);font-family:JetBrains Mono,monospace;font-size:12px">${openTool[i]?'▾':'▸'}</span>
-                    <span class="tool-name">Tool call</span>
-                    <span class="msg-time">${(m.created_at||'').slice(11,19)}</span>
-                  </div>
-                  ${openTool[i]?`<div class="tool-result">${escHtml(m.content).slice(0,2000)}</div>`:''}
-                </div></div>`;
-              }
+              const avCls = m.role==='user'?'user':'assistant';
+              const avLbl = m.role==='user'?'U':'A';
               const cmd = m.role==='user' ? parseCommandContent(m.content) : null;
               let roleLbl = m.role==='user'?'You':'Assistant';
               let body;
               if (cmd) {
                 const parts = [];
                 if (cmd.name) { roleLbl = 'You · command'; parts.push(`<div class="cmd-chip"><span class="cmd-glyph">❯</span><span>${escHtml(cmd.name)}${cmd.args?' '+escHtml(cmd.args):''}</span></div>`); }
-                if (cmd.rest) parts.push(`<div class="msg-body"${cmd.name?' style="margin-top:8px"':''}>${fmt(escHtml(cmd.rest))}</div>`);
+                if (cmd.rest) parts.push(`<div${cmd.name?' style="margin-top:8px"':''}>${renderContentBlocks(parseContentBlocks(cmd.rest), i)}</div>`);
                 if (cmd.stdout !== null) parts.push(`<div class="cmd-stdout"><div class="cmd-stdout-lbl">stdout</div>${cmd.stdout?escHtml(cmd.stdout):'<span style="opacity:.6">(no output)</span>'}</div>`);
                 cmd.reminders.forEach(r => parts.push(`<details class="sys-rem"><summary>system-reminder</summary><div class="sys-rem-body">${escHtml(r)}</div></details>`));
                 body = parts.join('');
               } else {
-                body = `<div class="msg-body">${fmt(escHtml(m.content))}</div>`;
+                body = renderContentBlocks(parseContentBlocks(m.content), i);
               }
               return `<div class="msg" id="msg-${i}"><div class="msg-avatar ${avCls}">${avLbl}</div><div class="msg-bubble ${m.role}">
                 <div class="msg-head"><div class="msg-role">${roleLbl}</div><div class="msg-time">${(m.created_at||'').slice(11,19)}</div><div class="msg-tok">${m.token_count||0} tok</div></div>
