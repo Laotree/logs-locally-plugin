@@ -580,6 +580,21 @@ impl Db {
         }))
     }
 
+    /// Returns the tokens recorded on messages created at or after `since` (ISO 8601).
+    ///
+    /// Both sides go through SQLite `datetime()` so timestamps that carry a
+    /// timezone offset are compared as instants rather than as raw strings.
+    pub fn get_token_usage_since(&self, since: &str) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT COALESCE(SUM(token_count), 0) FROM messages
+             WHERE datetime(created_at) >= datetime(?1)",
+            [since],
+            |row| row.get(0),
+        )
+        .context("querying token usage since")
+    }
+
     /// Returns daily activity: session count and token sum per day,
     /// optionally filtered to sessions updated on or after `since` (ISO 8601).
     pub fn get_daily_activity(&self, since: Option<&str>) -> Result<Vec<serde_json::Value>> {
@@ -608,5 +623,77 @@ impl Db {
           .collect::<Result<Vec<_>, _>>()
           .context("collecting daily activity")?;
         Ok(rows)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn msg(id: &str, created_at: &str, token_count: i64) -> Message {
+        Message {
+            id: id.to_string(),
+            session_id: "ses_1".to_string(),
+            role: "assistant".to_string(),
+            content: String::new(),
+            created_at: created_at.to_string(),
+            token_count,
+            parent_id: None,
+            model: None,
+        }
+    }
+
+    fn session() -> Session {
+        Session {
+            id: "ses_1".to_string(),
+            title: None,
+            model: None,
+            created_at: "2026-10-01T00:00:00Z".to_string(),
+            updated_at: "2026-10-08T00:00:00Z".to_string(),
+            message_count: 3,
+            token_count: 0,
+            cwd: None,
+            git_branch: None,
+            version: None,
+            source: "claude".to_string(),
+        }
+    }
+
+    #[test]
+    fn token_usage_since_sums_only_messages_inside_the_window() {
+        let dir = std::env::temp_dir().join(format!("llp-usage-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = Db::open(&dir.join("usage.db")).unwrap();
+
+        db.import_session(
+            &session(),
+            &[
+                msg("m1", "2026-10-07T20:00:00Z", 100),
+                msg("m2", "2026-10-07T23:00:00Z", 250),
+                msg("m3", "2026-10-01T09:00:00Z", 999),
+            ],
+        )
+        .unwrap();
+
+        let used = db.get_token_usage_since("2026-10-07T22:00:00Z").unwrap();
+        assert_eq!(used, 250);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn token_usage_since_compares_timestamps_as_instants() {
+        let dir = std::env::temp_dir().join(format!("llp-usage-tz-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = Db::open(&dir.join("usage.db")).unwrap();
+
+        // 04:00+02:00 is 02:00Z, so this message falls before the cutoff.
+        db.import_session(&session(), &[msg("m1", "2026-10-07T04:00:00+02:00", 400)])
+            .unwrap();
+
+        let used = db.get_token_usage_since("2026-10-07T03:00:00Z").unwrap();
+        assert_eq!(used, 0);
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

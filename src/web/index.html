@@ -109,7 +109,7 @@
 
   /* ── Sidebar ─────────────────────────────────────────────── */
   .llp-side {
-    width: 210px; flex-shrink: 0; padding: 12px 10px;
+    width: 240px; flex-shrink: 0; padding: 12px 10px;
     border-right: 1px solid var(--line);
     background: color-mix(in srgb, var(--surf-2) 72%, transparent);
     -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
@@ -127,6 +127,18 @@
   }
   .llp-brand-name { font-family: "Oxanium", monospace; font-weight: 700; font-size: 13.5px; color: var(--ink-0); letter-spacing: 0.06em; text-transform: uppercase; }
   .llp-brand-tag { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--ink-3); letter-spacing: 0.1em; margin-top: -1px; }
+  .usage-card { margin: 0 0 14px; padding: 10px 11px; background: var(--surf); border: 1px solid var(--line); border-radius: 7px; }
+  .usage-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+  .usage-title { font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.1em; color: var(--ink-3); text-transform: uppercase; }
+  .usage-plan { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-1); background: var(--bg-sunk); border: 1px solid var(--line); border-radius: 5px; padding: 2px 4px; cursor: pointer; }
+  .usage-row + .usage-row { margin-top: 9px; }
+  .usage-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .usage-lbl { font-size: 11.5px; color: var(--ink-2); }
+  .usage-amt { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+  .usage-pct { font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 600; }
+  .usage-track { height: 4px; border-radius: 2px; background: var(--bg-sunk); overflow: hidden; }
+  .usage-fill { height: 100%; border-radius: 2px; }
+  .usage-note { margin-top: 9px; font-size: 10px; line-height: 1.45; color: var(--ink-3); }
   .llp-nav { display: flex; flex-direction: column; gap: 1px; flex: 1; }
   .llp-nav-section {
     font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-3);
@@ -791,14 +803,16 @@ async function loadDashboard() {
   if (!main) return;
   main.innerHTML = loadingEl();
   try {
-    const [stats, scoreStats, activity] = await Promise.all([
+    const [stats, scoreStats, activity, usage] = await Promise.all([
       api('/api/stats'),
       api('/api/score-stats'),
       api('/api/activity'),
+      api('/api/usage'),
     ]);
     cache('stats', stats);
     cache('scoreStats', scoreStats);
     cache('activity', activity);
+    cache('usage', usage);
     cache('sessions', null);
 
     // Build heatmap cells from activity days
@@ -978,6 +992,58 @@ function scoreToDims(sc) {
 }
 
 /* ── Render Functions ───────────────────────────────────── */
+/* Estimated plan limits. Anthropic publishes no numeric caps, so these follow
+   community figures: about 30 messages per 5-hour window on Pro at roughly 25k
+   tokens each, scaled linearly across the Max tiers. */
+const USAGE_PLANS = {
+  pro:    { label: 'Pro',     fiveHour: 800000,  weekly: 4000000 },
+  max5x:  { label: 'Max 5x',  fiveHour: 4000000, weekly: 20000000 },
+  max20x: { label: 'Max 20x', fiveHour: 16000000, weekly: 80000000 },
+};
+
+function selectedPlan() {
+  const saved = localStorage.getItem('llp.plan');
+  return USAGE_PLANS[saved] ? saved : 'pro';
+}
+
+function selectPlan(key) {
+  if (!USAGE_PLANS[key]) return;
+  localStorage.setItem('llp.plan', key);
+  renderMain();
+}
+
+function usageBar(label, used, limit) {
+  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const tone = pct >= 100 ? 'var(--grade-d)' : pct >= 80 ? 'var(--grade-b)' : 'var(--grade-a)';
+  return `<div class="usage-row">
+    <div class="usage-row-top">
+      <span class="usage-lbl">${label}</span>
+      <span class="usage-pct" style="color:${tone}">${Math.round(pct)}%</span>
+    </div>
+    <div class="usage-amt">${fmtNum(used)} / ${fmtNum(limit)}</div>
+    <div class="usage-track"><div class="usage-fill" style="width:${pct.toFixed(1)}%;background:${tone}"></div></div>
+  </div>`;
+}
+
+function renderUsageCard() {
+  const usage = cached('usage');
+  const planId = selectedPlan();
+  const plan = USAGE_PLANS[planId];
+  const options = Object.keys(USAGE_PLANS)
+    .map(k => `<option value="${k}"${k === planId ? ' selected' : ''}>${USAGE_PLANS[k].label}</option>`)
+    .join('');
+  const head = `<div class="usage-head">
+      <span class="usage-title">Usage</span>
+      <select class="usage-plan" onchange="selectPlan(this.value)">${options}</select>
+    </div>`;
+  if (!usage) return `<div class="usage-card">${head}<div class="usage-note">Loading…</div></div>`;
+  return `<div class="usage-card">${head}
+    ${usageBar('5 hours', usage.five_hour.used, plan.fiveHour)}
+    ${usageBar('Weekly', usage.weekly.used, plan.weekly)}
+    <div class="usage-note">Estimated from local logs · not official limits</div>
+  </div>`;
+}
+
 function renderSidebar() {
   const stats = cached('stats');
   const totalSessions = (stats && stats.total_sessions) || 0;
@@ -992,6 +1058,7 @@ function renderSidebar() {
   const isDetail = view === 'detail';
   return `<aside class="llp-side">
     <div class="llp-brand"><div class="llp-brand-mark">llp</div><div><div class="llp-brand-name">Logs Locally</div><div class="llp-brand-tag">v${(cached('stats')&&cached('stats').version)||'—'} · LOCAL</div></div></div>
+    ${renderUsageCard()}
     <nav class="llp-nav">
       <div class="llp-nav-section">Browse</div>
       ${navBrowse.map(n=>`<button class="${view===n.id||(n.id==='sessions'&&isDetail)?'active':''}" onclick="setView('${n.id}')"><span class="llp-nav-glyph">${n.glyph}</span>${n.label}</button>`).join('')}
@@ -1326,6 +1393,7 @@ function initHeatmapTooltips() {
 /* ── Init ────────────────────────────────────────────────── */
 applyTheme(tweaksState);
 renderMain();
+api('/api/usage').then(usage => { cache('usage', usage); renderMain(); }).catch(() => {});
 </script>
 </body>
 </html>
