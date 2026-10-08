@@ -4,3 +4,4 @@ target/
 *.db-journal
 state.json
 .env
+.DS_Store
