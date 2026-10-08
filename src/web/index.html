@@ -9,67 +9,61 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Oxanium:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:        #EDF1F7;
-    --bg-sunk:   #E2E7F0;
-    --surf:      #FAFBFE;
-    --surf-2:    #F2F5FA;
-    --line:      #D7DEEA;
-    --line-2:    #B9C4D6;
-    --ink-0:     #0B1220;
-    --ink-1:     #2A3344;
-    --ink-2:     #5D6B81;
-    --ink-3:     #93A0B4;
-    --accent:    #0891B2;
-    --accent-d:  #0E7490;
-    --accent-2:  #7C3AED;
-    --accent-2d: #6D28D9;
-    --grade-s:   #0891B2;
+    --bg:        #FAF7F2;
+    --bg-sunk:   #F1ECE4;
+    --surf:      #FFFFFF;
+    --surf-2:    #F6F2EC;
+    --line:      #E7E0D5;
+    --line-2:    #D5CBB9;
+    --ink-0:     #1C1917;
+    --ink-1:     #3D362F;
+    --ink-2:     #6E655A;
+    --ink-3:     #9C9285;
+    --accent:    #B45309;
+    --accent-d:  #8A3F06;
+    --accent-2:  #857867;
+    --accent-2d: #6B6053;
+    --grade-s:   #B45309;
     --grade-a:   #16A34A;
     --grade-b:   #D97706;
     --grade-c:   #EA580C;
     --grade-d:   #DC2626;
-    --grade-na:  #94A3B8;
-    --grid-0:    #DCE3EE;
-    --grid-line: rgba(11,18,32,0.05);
-    --glow-1:    rgba(8,145,178,0.10);
-    --glow-2:    rgba(124,58,237,0.08);
-    --grid-shadow: 0 1px 2px rgba(11,18,32,0.04), 0 1px 3px rgba(11,18,32,0.05);
+    --grade-na:  #A8A29E;
+    --grid-0:    #EDE7DD;
+    --grid-shadow: 0 1px 2px rgba(28,25,23,0.05), 0 1px 3px rgba(28,25,23,0.06);
   }
   body[data-theme="dark"] {
-    --bg:        #06080F;
-    --bg-sunk:   #04060B;
-    --surf:      #0D1322;
-    --surf-2:    #0A0E19;
-    --line:      #1B2336;
-    --line-2:    #2C3850;
-    --ink-0:     #E9EEF8;
-    --ink-1:     #B9C3D8;
-    --ink-2:     #7D8AA4;
-    --ink-3:     #4E5B75;
-    --accent:    #00E5FF;
-    --accent-d:  #00B0CC;
-    --accent-2:  #A78BFA;
-    --accent-2d: #8B6CF8;
-    --grade-s:   #00E5FF;
+    --bg:        #0A0A0A;
+    --bg-sunk:   #060606;
+    --surf:      #121212;
+    --surf-2:    #171717;
+    --line:      #232323;
+    --line-2:    #2F2F2F;
+    --ink-0:     #E8E8E8;
+    --ink-1:     #D2D2D2;
+    --ink-2:     #8A8A8A;
+    --ink-3:     #626262;
+    --accent:    #F5A623;
+    --accent-d:  #C4801A;
+    --accent-2:  #8C8C8C;
+    --accent-2d: #6E6E6E;
+    --grade-s:   #F5A623;
     --grade-a:   #4ADE80;
     --grade-b:   #FACC15;
     --grade-c:   #FB923C;
     --grade-d:   #F87171;
-    --grade-na:  #5B6B85;
-    --grid-0:    #131A2B;
-    --grid-line: rgba(0,229,255,0.045);
-    --glow-1:    rgba(0,229,255,0.07);
-    --glow-2:    rgba(167,139,250,0.09);
-    --grid-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    --grade-na:  #5C5C5C;
+    --grid-0:    #151515;
+    --grid-shadow: 0 1px 2px rgba(0,0,0,0.5);
   }
   body[data-accent="forest"]  { --accent: #059669; --accent-d: #047857; --accent-2: #475569; --accent-2d: #334155; --grade-s: #059669; }
   body[data-accent="plum"]    { --accent: #7C3AED; --accent-d: #6D28D9; --accent-2: #0891B2; --accent-2d: #0E7490; --grade-s: #7C3AED; }
   body[data-accent="crimson"] { --accent: #E11D48; --accent-d: #BE123C; --accent-2: #475569; --accent-2d: #334155; --grade-s: #E11D48; }
   body[data-accent="mono"]    { --accent: #18181B; --accent-d: #000000; --accent-2: #71717A; --accent-2d: #52525B; --grade-s: #18181B; }
-  body[data-accent="forest"][data-theme="dark"]  { --accent: #34D399; --accent-d: #10B981; --accent-2: #A78BFA; --accent-2d: #8B6CF8; --grade-s: #34D399; --grid-line: rgba(52,211,153,0.045); --glow-1: rgba(52,211,153,0.07); }
-  body[data-accent="plum"][data-theme="dark"]    { --accent: #A78BFA; --accent-d: #8B5CF6; --accent-2: #00E5FF; --accent-2d: #00B0CC; --grade-s: #A78BFA; --grid-line: rgba(167,139,250,0.05); --glow-1: rgba(167,139,250,0.08); }
-  body[data-accent="crimson"][data-theme="dark"] { --accent: #FB7185; --accent-d: #F43F5E; --accent-2: #A78BFA; --accent-2d: #8B6CF8; --grade-s: #FB7185; --grid-line: rgba(251,113,133,0.05); --glow-1: rgba(251,113,133,0.07); }
-  body[data-accent="mono"][data-theme="dark"]    { --accent: #E4E4E7; --accent-d: #A1A1AA; --accent-2: #818CF8; --accent-2d: #6366F1; --grade-s: #E4E4E7; --grid-line: rgba(228,228,231,0.04); --glow-1: rgba(228,228,231,0.05); }
+  body[data-accent="forest"][data-theme="dark"]  { --accent: #34D399; --accent-d: #10B981; --accent-2: #A78BFA; --accent-2d: #8B6CF8; --grade-s: #34D399; }
+  body[data-accent="plum"][data-theme="dark"]    { --accent: #A78BFA; --accent-d: #8B5CF6; --accent-2: #00E5FF; --accent-2d: #00B0CC; --grade-s: #A78BFA; }
+  body[data-accent="crimson"][data-theme="dark"] { --accent: #FB7185; --accent-d: #F43F5E; --accent-2: #A78BFA; --accent-2d: #8B6CF8; --grade-s: #FB7185; }
+  body[data-accent="mono"][data-theme="dark"]    { --accent: #E4E4E7; --accent-d: #A1A1AA; --accent-2: #818CF8; --accent-2d: #6366F1; --grade-s: #E4E4E7; }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -80,23 +74,6 @@
     height: 100vh;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
-  }
-  /* Layered tech backdrop: blueprint grid + ambient glow fields */
-  body::before {
-    content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: 38px 38px;
-    -webkit-mask-image: radial-gradient(ellipse 120% 90% at 50% 0%, #000 0%, transparent 80%);
-    mask-image: radial-gradient(ellipse 120% 90% at 50% 0%, #000 0%, transparent 80%);
-  }
-  body::after {
-    content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background:
-      radial-gradient(640px 420px at 88% -8%, var(--glow-2), transparent 70%),
-      radial-gradient(760px 540px at -8% 104%, var(--glow-1), transparent 70%),
-      radial-gradient(520px 320px at 40% 0%, var(--glow-1), transparent 75%);
   }
   ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
   .mono { font-family: "JetBrains Mono", monospace; }
@@ -728,7 +705,7 @@ function DualHeatmap(cells, totals) {
   const sMax = Math.max(1, ...cells.map(c=>c.sessions));
   const tMax = Math.max(1, ...cells.map(c=>c.tokens));
   const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#00E5FF';
-  const ac2 = getComputedStyle(document.body).getPropertyValue('--accent-2').trim() || '#A78BFA';
+  const ac2 = getComputedStyle(document.body).getPropertyValue('--accent-2').trim() || '#8C8C8C';
   return `<div style="display:flex;flex-direction:column;gap:20px">
     ${ContributionGrid(cells, sMax, ac, 'Sessions', totals.sessions.toLocaleString())}
     ${ContributionGrid(cells, tMax, ac2, 'Tokens', fmtNum(totals.tokens))}
@@ -762,7 +739,7 @@ function BarList(items) {
   const max = Math.max(...items.map(i=>i.sessions));
   const ac = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#00E5FF';
   const acd = getComputedStyle(document.body).getPropertyValue('--accent-d').trim() || '#00B0CC';
-  const ac2 = getComputedStyle(document.body).getPropertyValue('--accent-2').trim() || '#A78BFA';
+  const ac2 = getComputedStyle(document.body).getPropertyValue('--accent-2').trim() || '#8C8C8C';
   const colors = [ac, acd, ac2, '#6C6E76'];
   return `<div class="llp-barlist">${items.map((it,i)=>{
     const pct = (it.sessions/max)*100;
